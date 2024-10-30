@@ -1,18 +1,19 @@
 #include <iostream>
 #include <string>
 #include <zmq.hpp>
-#include "api.cpp"
+#include "database.cpp"
 //#include "data_types.h"
 
 class RequestHandler {
 public:
-    void handleRequest(const std::string& request) {
+    std::string handleRequest(const std::string& request) {
+        ShoppingList shoppingList;
         std::string response;
 
         if (request == "CREATE_LIST") {
-            response = createShoppingList("Sample List"); 
+            // Use function createShoppingList() from database.cpp
         } else if (request == "GET_LIST") {
-            response = getShoppingList("list1");
+            // Use function getShoppingList() from database.cpp
         } else {
             response = "Unknown Request";
         }
@@ -20,5 +21,5 @@ public:
         std::cout << "Response: " << response << std::endl;
 
         return response;
-    }
-}
+    };
+};

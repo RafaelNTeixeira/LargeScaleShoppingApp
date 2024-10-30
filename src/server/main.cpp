@@ -1,6 +1,5 @@
 #include <iostream>
 #include <zmq.hpp>
-#include "api.cpp"
 #include "request_handler.cpp"
 
 int main() {
@@ -17,7 +16,7 @@ int main() {
         std::string req_str(static_cast<char*>(request.data()), request.size());
         std::cout << "Received request: " << req_str << std::endl;
 
-        // response = handleRequest(req_str); 
+        //response = handleRequest(req_str); // USE THIS INSTEAD OF THE IF CONDITIONS AFTER HAVING A DATABASE
 
         if (req_str == "GET_LIST") {
             ShoppingList list = getShoppingList("list1"); // TEMP. In the future, change to the list requested by the user

@@ -10,6 +10,6 @@ void createShoppingList(const ShoppingList& list) {
     std::cout << "Created shopping list: " << list.name << std::endl;
 }
 
-ShoppingList getShoppingList(const std::string& id) {
+ShoppingList getShoppingList(const std::string id) {
     return database[id];
 }
