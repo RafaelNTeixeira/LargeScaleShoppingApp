@@ -1,13 +1,22 @@
-TARGETS = src/client src/server src/proxy
+TARGETS = src/client/client src/server/server src/proxy/proxy
 
 server: 
-	g++ src/server.cpp -o src/server -lzmq
+	g++ src/server/main.cpp -o src/server/server -lzmq
+
+runServer:
+	./src/server/server
 
 proxy: 
-	g++ src/proxy.cpp -o src/proxy -lzmq
+	g++ src/proxy/main.cpp -o src/proxy/proxy -lzmq
+
+runProxy:
+	./src/proxy/proxy
 
 client: 
-	g++ src/client.cpp -o src/client -lzmq
+	g++ src/client/main.cpp -o src/client/client -lzmq
+
+runClient:
+	./src/client/client
 
 clean:
 	rm -f $(TARGETS)
