@@ -1,6 +1,5 @@
 #include <iostream>
 #include <zmq.hpp>
-//#include "request_handler.cpp"
 
 int main() {
     zmq::context_t context(1);
