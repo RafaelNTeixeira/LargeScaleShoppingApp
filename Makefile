@@ -1,3 +1,4 @@
+PHONY: server runServer proxy runProxy runClient test testCRDT clean
 TARGETS = src/client/client src/server/server src/proxy/proxy
 
 server: 
@@ -17,6 +18,12 @@ client:
 
 runClient:
 	./src/client/client
+
+testCRDT: test/crdt/test.cpp src/crdt/*
+	g++ test/crdt/test.cpp -o test/crdt/test -O3 -lgtest -lgtest_main
+
+test: testCRDT
+	./test/crdt/test
 
 clean:
 	rm -f $(TARGETS)
