@@ -6,6 +6,7 @@
 #include "../../src/crdt/counter.h"
 #include "../../src/crdt/gset.h"
 #include "../../src/crdt/join.h"
+#include "../../src/crdt/shopping_list.h"
 
 class BaseCounterTest : public ::testing::Test {
    protected:
@@ -308,6 +309,120 @@ TEST_F(GSetTest, UsingDeltas) {
     EXPECT_EQ(u5.read("Banana"), -1);
     EXPECT_EQ(u5.read("Tomato"), 0);
     EXPECT_EQ(u5.read("Pineapple"), 0);
+}
+
+class ShoppingListTest : public ::testing::Test {
+   protected:
+    ShoppingList u1{"user1", "Fruits", "myFruits"};
+    ShoppingList u2{"user2", "Fruits", "myFruits"};
+    ShoppingList u3{"user3", "NotFruits", "myFruits"};
+    ShoppingList u4{"user4", "Fruits", "notMyFruits"};
+
+    void SetUp() override {
+    }
+};
+
+TEST_F(ShoppingListTest, InitialEmpty) {
+    EXPECT_EQ(u1.getHistory().size(), 0);
+    EXPECT_EQ(u1.elements().size(), 0);
+    EXPECT_EQ(u1.elementsRead().size(), 0);
+    EXPECT_EQ(u1.allElements().size(), 0);
+    EXPECT_EQ(u1.allElementsRead().size(), 0);
+    EXPECT_EQ(u1.getTitle(), "Fruits");
+    EXPECT_EQ(u1.getURL(), "myFruits");
+    EXPECT_FALSE(u1.contains("Banana"));
+}
+
+TEST_F(ShoppingListTest, CreateElement) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 0);
+    EXPECT_FALSE(r.first);
+    EXPECT_EQ(u1.allElements().size(), 0);
+    EXPECT_FALSE(u1.contains("Banana"));
+    r = u1.createItem("Banana");
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.allElements().size(), 1);
+    EXPECT_EQ(u1.getQuantity("Banana"), 1);
+    EXPECT_TRUE(u1.contains("Banana"));
+    r = u1.createItem("Banana");
+    EXPECT_FALSE(r.first);
+    EXPECT_EQ(u1.allElements().size(), 1);
+    EXPECT_EQ(u1.getQuantity("Banana"), 1);
+    EXPECT_TRUE(u1.contains("Banana"));
+}
+
+TEST_F(ShoppingListTest, RemoveGetElement) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    EXPECT_TRUE(u1.contains("Banana"));
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 10);
+    EXPECT_EQ(u1.allElements().count("Banana"), 1);
+    EXPECT_EQ(u1.allElementsRead()["Banana"], 10);
+
+    r = u1.removeItem("Banana");
+    EXPECT_TRUE(r.first);
+    EXPECT_FALSE(u1.contains("Banana"));
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_THROW({
+        auto elements = u1.elementsRead();
+        elements.at("Banana"); }, std::out_of_range);
+    EXPECT_EQ(u1.allElements().count("Banana"), 1);
+    EXPECT_EQ(u1.allElementsRead()["Banana"], 0);
+    r = u1.removeItem("Banana");
+    EXPECT_FALSE(r.first);
+}
+
+TEST_F(ShoppingListTest, IncreaseElement) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    EXPECT_TRUE(u1.contains("Banana"));
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 10);
+    EXPECT_EQ(u1.allElements().count("Banana"), 1);
+    EXPECT_EQ(u1.allElementsRead()["Banana"], 10);
+
+    r = u1.increaseItem("Banana");
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 11);
+
+    r = u1.increaseItem("Tomato");
+    EXPECT_FALSE(r.first);
+}
+
+TEST_F(ShoppingListTest, BuyElement) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+
+    r = u1.buyItem("Banana");
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 9);
+
+    r = u1.buyItem("Tomato");
+    EXPECT_FALSE(r.first);
+}
+
+TEST_F(ShoppingListTest, UpdateList) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u2.createItem("Tomato");
+    r = u3.createItem("Banana", 10);
+    r = u4.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elements().count("Tomato"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 20);
+    EXPECT_EQ(u1.elementsRead()["Tomato"], 1);
+
+    r = u1.updateList(u3);
+    EXPECT_FALSE(r.first);
+
+    r = u1.updateList(u4);
+    EXPECT_FALSE(r.first);
 }
 
 int main(int argc, char** argv) {

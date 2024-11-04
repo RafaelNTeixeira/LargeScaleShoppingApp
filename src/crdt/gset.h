@@ -22,7 +22,7 @@ class GSet {
     GSet(K id) : id(id) {}
     GSet(const GSet<K>& o) : id(o.id), set(o.set) {}
 
-    bool contains(const std::string& element) {
+    bool contains(const std::string& element) const {
         auto item = set.find(element);
         return item != set.end();
     }
@@ -70,9 +70,9 @@ class GSet {
         return res;
     }
 
-    int read(const K& element) {
+    int read(const K& element) const {
         if (contains(element)) {
-            return set[element].read();
+            return set.at(element).read();
         }
         return 0;
     }

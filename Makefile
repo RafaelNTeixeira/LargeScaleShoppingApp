@@ -1,5 +1,5 @@
 PHONY: server runServer proxy runProxy runClient test testCRDT clean
-TARGETS = src/client/client src/server/server src/proxy/proxy
+TARGETS = src/client/client src/server/server src/proxy/proxy test/crdt/test
 
 server: 
 	g++ src/server/main.cpp -o src/server/server -lzmq
