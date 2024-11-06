@@ -2,6 +2,7 @@
 #include <string>
 #include <unordered_map>
 #include "../data_types.h"
+#include "../database/database.sql"
 
 std::unordered_map<std::string, ShoppingList> database;
 
@@ -13,3 +14,5 @@ void createShoppingList(const ShoppingList& list) {
 ShoppingList getShoppingList(const std::string id) {
     return database[id];
 }
+
+
