@@ -114,3 +114,127 @@ void getShoppingListItems(const std::string& list_url) {
     sqlite3_finalize(stmt);
 }
 
+void updateItemTargetQuantity(int item_id, int new_target_quantity) {
+    std::string sql = "UPDATE shopping_list_items SET target_quantity = ? WHERE id = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_int(stmt, 1, new_target_quantity);
+    sqlite3_bind_int(stmt, 2, item_id);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to update target quantity: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Updated target quantity for item ID: " << item_id << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void updateItemAcquiredQuantity(int item_id, int new_acquired_quantity) {
+    std::string sql = "UPDATE shopping_list_items SET acquired_quantity = ? WHERE id = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_int(stmt, 1, new_acquired_quantity);
+    sqlite3_bind_int(stmt, 2, item_id);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to update acquired quantity: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Updated acquired quantity for item ID: " << item_id << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void updateItemName(int item_id, const std::string& new_item_name) {
+    std::string sql = "UPDATE shopping_list_items SET item_name = ? WHERE id = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_text(stmt, 1, new_item_name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, item_id);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to update item name: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Updated item name for item ID: " << item_id << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void updateShoppingListName(const std::string& url, const std::string& newName) {
+    std::string sql = "UPDATE shopping_list SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE url = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_text(stmt, 1, newName.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, url.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to update list name: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Updated shopping list name to: " << newName << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void updateShoppingListOwner(const std::string& url, const std::string& newOwner) {
+    std::string sql = "UPDATE shopping_list SET owner = ?, updated_at = CURRENT_TIMESTAMP WHERE url = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_text(stmt, 1, newOwner.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, url.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to update list owner: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Updated shopping list owner to: " << newOwner << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
+
+void markShoppingListDeleted(const std::string& url) {
+    std::string sql = "UPDATE shopping_list SET deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE url = ?;";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    sqlite3_bind_text(stmt, 1, url.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to mark list as deleted: " << sqlite3_errmsg(db) << std::endl;
+    } else {
+        std::cout << "Marked shopping list as deleted for URL: " << url << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+}
