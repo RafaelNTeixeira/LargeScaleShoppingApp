@@ -9,6 +9,8 @@ int main() {
 
     std::cout << "Server is running and listening on 5555..." << std::endl;
 
+    initDatabase(); 
+
     while (true) {
         zmq::message_t request;
         socket.recv(request, zmq::recv_flags::none); // Receive request from the proxy
@@ -16,8 +18,13 @@ int main() {
         std::string req_str(static_cast<char*>(request.data()), request.size());
         std::cout << "Received request: " << req_str << std::endl;
 
-        //response = handleRequest(req_str); // USE THIS INSTEAD OF THE IF CONDITIONS AFTER HAVING A DATABASE
+        std::string response = handleRequest(req_str);
 
+        zmq::message_t reply(response.size());
+        memcpy(reply.data(), response.c_str(), response.size());
+        socket.send(reply, zmq::send_flags::none); // Reply to the proxy
+
+       /*
         if (req_str == "GET_LIST") {
             ShoppingList list = getShoppingList("list1"); // TEMP. In the future, change to the list requested by the user
             std::string response = "Retrieved List Name: " + list.name;
@@ -34,6 +41,7 @@ int main() {
             memcpy(reply.data(), response.c_str(), response.size());
             socket.send(reply, zmq::send_flags::none); // Reply to the proxy
         }
+        */
     }
 
     return 0;
