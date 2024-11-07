@@ -343,6 +343,7 @@ TEST_F(ShoppingListTest, CreateElement) {
     EXPECT_TRUE(r.first);
     EXPECT_EQ(u1.allElements().size(), 1);
     EXPECT_EQ(u1.getQuantity("Banana"), 1);
+    EXPECT_EQ(u1.getQuantityAcquired("Banana"), 0);
     EXPECT_TRUE(u1.contains("Banana"));
     r = u1.createItem("Banana");
     EXPECT_FALSE(r.first);
@@ -359,6 +360,7 @@ TEST_F(ShoppingListTest, RemoveGetElement) {
     EXPECT_EQ(u1.elementsRead()["Banana"], 10);
     EXPECT_EQ(u1.allElements().count("Banana"), 1);
     EXPECT_EQ(u1.allElementsRead()["Banana"], 10);
+    EXPECT_EQ(u1.getQuantityAcquired("Banana"), 0);
 
     r = u1.removeItem("Banana");
     EXPECT_TRUE(r.first);
@@ -369,6 +371,7 @@ TEST_F(ShoppingListTest, RemoveGetElement) {
         elements.at("Banana"); }, std::out_of_range);
     EXPECT_EQ(u1.allElements().count("Banana"), 1);
     EXPECT_EQ(u1.allElementsRead()["Banana"], 0);
+    EXPECT_EQ(u1.getQuantityAcquired("Banana"), 0);
     r = u1.removeItem("Banana");
     EXPECT_FALSE(r.first);
 }
@@ -398,9 +401,11 @@ TEST_F(ShoppingListTest, BuyElement) {
     EXPECT_TRUE(r.first);
     EXPECT_EQ(u1.elements().count("Banana"), 1);
     EXPECT_EQ(u1.elementsRead()["Banana"], 9);
+    EXPECT_EQ(u1.getQuantityAcquired("Banana"), 1);
 
     r = u1.buyItem("Tomato");
     EXPECT_FALSE(r.first);
+    EXPECT_EQ(u1.getQuantityAcquired("Tomato"), 0);
 }
 
 TEST_F(ShoppingListTest, UpdateList) {
@@ -408,15 +413,18 @@ TEST_F(ShoppingListTest, UpdateList) {
     r = u1.createItem("Banana", 10);
     r = u2.createItem("Banana", 10);
     r = u2.createItem("Tomato");
+    r = u2.buyItem("Tomato", 1);
     r = u3.createItem("Banana", 10);
     r = u4.createItem("Banana", 10);
     r = u1.updateList(u2);
 
     EXPECT_TRUE(r.first);
     EXPECT_EQ(u1.elements().count("Banana"), 1);
-    EXPECT_EQ(u1.elements().count("Tomato"), 1);
+    EXPECT_EQ(u1.elements().count("Tomato"), 0);
+    EXPECT_EQ(u1.allElements().count("Tomato"), 1);
     EXPECT_EQ(u1.elementsRead()["Banana"], 20);
-    EXPECT_EQ(u1.elementsRead()["Tomato"], 1);
+    EXPECT_EQ(u1.elementsRead()["Tomato"], 0);
+    EXPECT_EQ(u1.getQuantityAcquired("Tomato"), 1);
 
     r = u1.updateList(u3);
     EXPECT_FALSE(r.first);
