@@ -3,11 +3,9 @@ DROP TABLE IF EXISTS shopping_list_items;
 
 CREATE TABLE shopping_list (
     url TEXT NOT NULL PRIMARY KEY,       
-    name TEXT, 
-    owner TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    deleted BOOLEAN DEFAULT FALSE
+    name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE TABLE shopping_list_items (
@@ -20,3 +18,10 @@ CREATE TABLE shopping_list_items (
     total_deleted INTEGER DEFAULT 0,   
     FOREIGN KEY (list_url) REFERENCES shopping_list (url) ON DELETE CASCADE
 );
+
+CREATE TRIGGER update_shopping_list_timestamp
+AFTER UPDATE ON shopping_list
+FOR EACH ROW
+BEGIN
+    UPDATE shopping_list SET updated_at = CURRENT_TIMESTAMP WHERE url = OLD.url;
+END;

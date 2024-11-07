@@ -13,7 +13,7 @@ int main() {
 
     while (true) {
         zmq::message_t request;
-        socket.recv(request, zmq::recv_flags::none); // Receive request from the proxy
+        socket.recv(request, zmq::recv_flags::none);
 
         std::string req_str(static_cast<char*>(request.data()), request.size());
         std::cout << "Received request: " << req_str << std::endl;
@@ -22,7 +22,7 @@ int main() {
 
         zmq::message_t reply(response.size());
         memcpy(reply.data(), response.c_str(), response.size());
-        socket.send(reply, zmq::send_flags::none); // Reply to the proxy
+        socket.send(reply, zmq::send_flags::none);
 
        /*
         if (req_str == "GET_LIST") {
