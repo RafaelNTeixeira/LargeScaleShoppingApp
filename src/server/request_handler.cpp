@@ -2,24 +2,41 @@
 #include <string>
 #include <zmq.hpp>
 #include "database.cpp"
-//#include "data_types.h"
+#include <nlohmann/json.hpp>
 
-class RequestHandler {
-public:
-    std::string handleRequest(const std::string& request) {
-        ShoppingList shoppingList;
-        std::string response;
+using json = nlohmann::json;
 
-        if (request == "CREATE_LIST") {
-            // Use function createShoppingList() from database.cpp
-        } else if (request == "GET_LIST") {
-            // Use function getShoppingList() from database.cpp
-        } else {
-            response = "Unknown Request";
-        }
+json handleRequest(json& request) {
+    json response_json;
 
-        std::cout << "Response: " << response << std::endl;
+    std::string command = request["command"];
 
-        return response;
-    };
-};
+    if (command == "CREATE_LIST") {
+        std::string list_name = request["parameters"]["list_name"];
+        std::string list_url = request["parameters"]["list_url"];
+        //std::unordered_map<std::string, int> items = request["parameters"]["list_items"];
+
+        createShoppingList(list_name);
+
+        response_json["status"] = "success";
+        response_json["message"] = "List created with ID " + list_url;
+    } 
+    else if (command == "GET_LIST") {
+        std::string list_url = request["parameters"]["list_url"];
+
+        getShoppingList(list_url);
+
+        response_json["status"] = "success";
+        response_json["message"] = "Retrieved list for URL: " + list_url;
+    } 
+    else if (command == "PING") {
+        response_json["status"] = "success";
+        response_json["message"] = "Connected to server";
+    }
+    else {
+        response_json["status"] = "error";
+        response_json["message"] = "Unknown Request";
+    }
+
+    return response_json;
+}

@@ -1,8 +1,10 @@
-PHONY: server runServer proxy runProxy runClient test testCRDT clean
-TARGETS = src/client/client src/server/server src/proxy/proxy test/crdt/test
+.PHONY: database server runServer proxy runProxy runClient test testCRDT clean
+TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test
+
+all: clean database server proxy client 
 
 server: 
-	g++ src/server/main.cpp -o src/server/server -lzmq
+	g++ src/server/main.cpp -o src/server/server -lzmq -lsqlite3
 
 runServer:
 	./src/server/server
@@ -24,6 +26,9 @@ testCRDT: test/crdt/test.cpp src/crdt/*
 
 test: testCRDT
 	./test/crdt/test
+
+database:
+	sqlite3 database/cloud/database.db < database/cloud/database.sql
 
 clean:
 	rm -f $(TARGETS)

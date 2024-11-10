@@ -209,7 +209,7 @@ int main() {
                 if (connected_to_proxy) {
                     std::cout << "Create list - CLOUD MODE" << std::endl;
                     request_json["command"] = "CREATE_LIST";
-                    request_json["parameters"] = {{"list_url", full_url}, {"name", list_name}, {"items", items}};
+                    request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", items}};
                 }
                 else {
                     std::cout << "Create list - LOCAL MODE" << std::endl;
@@ -251,10 +251,10 @@ int main() {
 
         zmq::message_t msg(request.size());
         memcpy(msg.data(), request.c_str(), request.size());
-        socket.send(msg, zmq::send_flags::none); // Send message to proxy
+        socket.send(msg, zmq::send_flags::none);
 
         zmq::message_t reply;
-        socket.recv(reply, zmq::recv_flags::none); // Receive message from proxy (sent by server)
+        socket.recv(reply, zmq::recv_flags::none);
 
         std::string response(static_cast<char*>(reply.data()), reply.size());
         std::cout << "Response from server: " << response << std::endl;

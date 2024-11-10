@@ -24,8 +24,7 @@ struct Action {
     }
 };
 
-typedef std::pair<bool, GSet<std::string>>
-    ShoppingListResponse;
+typedef std::pair<bool, std::pair<GSet<std::string>, GSet<std::string>>> ShoppingListResponse;
 
 class ShoppingList {
    private:
@@ -33,6 +32,7 @@ class ShoppingList {
     std::string title;
     std::string url;
     GSet<std::string> items;
+    GSet<std::string> items_acquired;
     std::vector<Action> history;
 
     Action addAction(ActionType type, const std::string& target, int quantity = 0) {
@@ -47,7 +47,7 @@ class ShoppingList {
    public:
     ShoppingList() {}
     ShoppingList(const std::string& id, const std::string& title, const std::string& url) : id(id), title(title), url(url) { items = GSet<std::string>(id); }
-    ShoppingList(const ShoppingList& o) : id(o.id), title(o.title), url(url), items(o.items), history(o.history) {}
+    ShoppingList(const ShoppingList& o) : id(o.id), title(o.title), url(url), items(o.items), items_acquired(o.items_acquired), history(o.history) {}
 
     std::string getTitle() const {
         return title;
@@ -57,12 +57,24 @@ class ShoppingList {
         return url;
     }
 
+    GSet<std::string> getItems() const {
+        return items;
+    }
+
+    GSet<std::string> getItemsAquired() const {
+        return items_acquired;
+    }
+
     bool contains(const std::string& name) const {
         return items.read(name) > 0;
     }
 
     int getQuantity(const std::string& name) const {
         return items.read(name);
+    }
+
+    int getQuantityAcquired(const std::string& name) const {
+        return items_acquired.read(name);
     }
 
     std::set<std::string> elements() {
@@ -103,86 +115,110 @@ class ShoppingList {
 
     ShoppingListResponse createItem(const std::string& name, int quantity = 1) {
         ShoppingListResponse res;
-        GSet<std::string> delta;
+        GSet<std::string> item_delta;
+        GSet<std::string> acquired_delta;
         if (quantity < 1) {
             // invalid quantity
             res.first = false;
-            delta.join(items);
+            item_delta.join(items);
+            acquired_delta.join(items_acquired);
+
         } else if (items.contains(name)) {
             if (items.read(name) <= 0) {
                 // Creates with target quantity if it exists but it has negative values or 0
-                delta.join(items.inc(name, -items.read(name)));
-                delta.join(items.inc(name, quantity));
+                item_delta.join(items.inc(name, -items.read(name)));
+                item_delta.join(items.inc(name, quantity));
+                acquired_delta.join(items_acquired);
                 addAction(ActionType::CREATE, name, quantity);
                 res.first = true;
             } else {
                 // Can't create item that exists
                 res.first = false;
-                delta.join(items);
+                item_delta.join(items);
+                acquired_delta.join(items_acquired);
             }
         } else {
             // Creates if does not exist
-            delta.join(items.add(name));
-            delta.join(items.inc(name, quantity));
+            item_delta.join(items.add(name));
+            item_delta.join(items.inc(name, quantity));
+            acquired_delta.join(items_acquired.add(name));
             addAction(ActionType::CREATE, name, quantity);
             res.first = true;
         }
-        res.second = delta;
+        res.second.first = item_delta;
+        res.second.second = acquired_delta;
         return res;
     }
 
     ShoppingListResponse removeItem(const std::string& name) {
         ShoppingListResponse res;
-        GSet<std::string> delta;
+        GSet<std::string> item_delta;
+        GSet<std::string> acquired_delta;
         if (!contains(name)) {
             // does not have the item
             res.first = false;
-            delta.join(items);
+            item_delta.join(items);
+            acquired_delta.join(items_acquired);
         } else {
             // can remove
-            delta.join(items.dec(name, items.read(name)));
+            item_delta.join(items.dec(name, items.read(name)));
+            acquired_delta.join(items_acquired);
             res.first = true;
             addAction(ActionType::REMOVE, name);
         }
-        res.second = delta;
+        res.second.first = item_delta;
+        res.second.second = acquired_delta;
         return res;
     }
 
     ShoppingListResponse increaseItem(const std::string& name, int quantity = 1) {
         ShoppingListResponse res;
-        GSet<std::string> delta;
+        GSet<std::string> item_delta;
+        GSet<std::string> acquired_delta;
         if (!contains(name)) {
             res.first = false;
-            delta.join(items);
+            item_delta.join(items);
+            acquired_delta.join(items_acquired);
+
         } else {
             res.first = true;
-            delta.join(items.inc(name, quantity));
+            item_delta.join(items.inc(name, quantity));
+            acquired_delta.join(items_acquired);
+
             addAction(ActionType::INCREASE, name, quantity);
         }
-        res.second = delta;
+        res.second.first = item_delta;
+        res.second.second = acquired_delta;
         return res;
     }
 
     ShoppingListResponse buyItem(const std::string& name, int quantity = 1) {
         ShoppingListResponse res;
-        GSet<std::string> delta;
+        GSet<std::string> item_delta;
+        GSet<std::string> acquired_delta;
         if (!contains(name)) {
             res.first = false;
-            delta.join(items);
+            item_delta.join(items);
+            acquired_delta.join(items_acquired);
+
         } else {
             res.first = true;
-            delta.join(items.dec(name, quantity));
+            item_delta.join(items.dec(name, quantity));
+            acquired_delta.join(items_acquired.inc(name, quantity));
             addAction(ActionType::BUY, name, quantity);
         }
-        res.second = delta;
+        res.second.first = item_delta;
+        res.second.second = acquired_delta;
         return res;
     }
 
     ShoppingListResponse updateList(const ShoppingList& o) {
         ShoppingListResponse res;
-        GSet<std::string> delta;
+        GSet<std::string> item_delta;
+        GSet<std::string> acquired_delta;
         if (url == o.url && o.title == title) {
-            delta = items.join(o.items);
+            item_delta = items.join(o.items);
+            acquired_delta = items_acquired.join(o.items_acquired);
             res.first = true;
 
             // history needs working
@@ -200,9 +236,11 @@ class ShoppingList {
             }
         } else {
             res.first = false;
-            delta.join(items);
+            item_delta.join(items);
+            acquired_delta.join(items_acquired);
         }
-        res.second = delta;
+        res.second.first = item_delta;
+        res.second.second = acquired_delta;
         return res;
     }
 };
