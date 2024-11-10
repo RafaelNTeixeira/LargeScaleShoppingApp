@@ -34,6 +34,10 @@ int main() {
             response_json["status"] = "success";
             response_json["message"] = "List retrieved";
         }
+        else if (command == "PING") {
+            response_json["status"] = "success";
+            response_json["message"] = "Connected to server";
+        }
         else {
             response_json["status"] = "error";
             response_json["message"] = "Unknown command";

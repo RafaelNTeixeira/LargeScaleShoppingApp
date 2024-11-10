@@ -14,7 +14,7 @@ runProxy:
 	./src/proxy/proxy
 
 client: 
-	g++ src/client/main.cpp -o src/client/client -lzmq -luuid
+	g++ src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3
 
 runClient:
 	./src/client/client
