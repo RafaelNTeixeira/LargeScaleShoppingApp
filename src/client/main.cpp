@@ -67,49 +67,109 @@ int executeSQL(sqlite3* db, const char* sql) {
     return rc;
 }
 
-void saveListToSQLite(sqlite3* db, const std::string& list_id, const std::string& list_name) {
-    std::string sql = "INSERT INTO shopping_lists (list_id, name) VALUES ('" + list_id + "', '" + list_name + "');";
+void saveListToLocal(sqlite3* db, const std::string& list_url, const std::string& list_name, const std::unordered_map<std::string, int>& items) {
+    std::string sql = "INSERT INTO shopping_lists (url, name) VALUES ('" + list_url + "', '" + list_name + "');";
     executeSQL(db, sql.c_str());
-    std::cout << "List saved to SQLite database with ID: " << list_id << std::endl;
+    std::cout << "List saved to SQLite database with ID: " << list_url << std::endl;
+
+    for (const auto& item : items) {
+        std::string item_sql = "INSERT INTO shopping_lists_items (list_url, item_name, acquired_quantity) VALUES ('" + list_url + "', '" + item.first + "', " + std::to_string(item.second) + ");";
+        executeSQL(db, item_sql.c_str());
+    }
 }
 
-json loadListFromSQLite(sqlite3* db, const std::string& list_id) {
-    std::string sql = "SELECT * FROM shopping_lists WHERE list_id = '" + list_id + "';";
+json loadListFromLocal(sqlite3* db, const std::string& list_url) {
+    std::string sql = "SELECT * FROM shopping_lists WHERE list_url = '" + list_url + "';";
     sqlite3_stmt* stmt;
     json list_data;
 
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         std::cerr << "Failed to fetch list: " << sqlite3_errmsg(db) << std::endl;
-        return list_data;  // Empty list
+        return list_data;
     }
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-        list_data["list_id"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        list_data["list_url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
         list_data["name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
     } else {
         std::cerr << "List not found." << std::endl;
     }
 
     sqlite3_finalize(stmt);
+
+
+    std::string sql_items = "SELECT item_name, acquired_quantity FROM shopping_lists_items WHERE list_url = '" + list_url + "';";
+    rc = sqlite3_prepare_v2(db, sql_items.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to fetch items: " << sqlite3_errmsg(db) << std::endl;
+        return list_data;
+    }
+
+    json items = json::array();
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        json item;
+        item["item_name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        item["acquired_quantity"] = sqlite3_column_int(stmt, 1);
+        items.push_back(item);
+    }
+
+    sqlite3_finalize(stmt);
+
+    list_data["products"] = items;
+
     return list_data;
 }
 
 sqlite3* initializeDatabase() {
     sqlite3* db;
     int rc = sqlite3_open("database/local/shopping_lists.db", &db);
+    
     if (rc) {
         std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
         return nullptr;
     }
 
-    const char* createTableSQL = "CREATE TABLE IF NOT EXISTS shopping_lists ("
-                                 "list_id TEXT PRIMARY KEY, "
-                                 "name TEXT NOT NULL);";
-    executeSQL(db, createTableSQL);
-    
+    const char* createTableSQL1 = 
+        "CREATE TABLE IF NOT EXISTS shopping_lists ("
+        "url TEXT PRIMARY KEY, "
+        "name TEXT NOT NULL);";
+    executeSQL(db, createTableSQL1);
+
+    const char* createTableSQL2 = 
+        "CREATE TABLE IF NOT EXISTS shopping_lists_items ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "list_url TEXT NOT NULL, "
+        "item_name TEXT NOT NULL, "
+        "acquired_quantity INTEGER DEFAULT 0, "
+        "FOREIGN KEY(list_url) REFERENCES shopping_lists(list_url));"; 
+    executeSQL(db, createTableSQL2);
+
     return db;
+}
+
+// Function to collect products from the user
+std::unordered_map<std::string, int> addProductsToList() {
+    std::unordered_map<std::string, int> items;
+    std::string product_name;
+    int quantity;
+
+    while (true) {
+        std::cout << "Enter product name (or type 'quit' to finish): ";
+        std::cin >> product_name;
+
+        if (product_name == "quit") {
+            break;
+        }
+
+        std::cout << "Enter quantity for " << product_name << ": ";
+        std::cin >> quantity;
+
+        items[product_name] = quantity;
+    }
+
+    return items;
 }
 
 int main() {
@@ -137,33 +197,38 @@ int main() {
         switch (choice) {
             case 1: {
                 std::string base_url = "https://myshoppinglistapp.com/list/";
-                // std::string list_id = generateUUID();
-                std::string list_id = "123"; // TEMP. FOR TEST PURPOSES
+                std::string list_id = generateUUID();
                 std::string full_url = base_url + list_id;
-                std::string list_name = "My List";
+
+                std::cout << "Give a name to your list: ";
+                std::string list_name;
+                std::cin >> list_name;
+
+                std::unordered_map<std::string, int> items = addProductsToList();
+
                 if (connected_to_proxy) {
                     std::cout << "Create list - CLOUD MODE" << std::endl;
                     request_json["command"] = "CREATE_LIST";
-                    request_json["parameters"] = {{"list_id", full_url}, {"name", list_name}};
+                    request_json["parameters"] = {{"list_url", full_url}, {"name", list_name}, {"items", items}};
                 }
                 else {
                     std::cout << "Create list - LOCAL MODE" << std::endl;
-                    saveListToSQLite(db, full_url, list_name);
+                    saveListToLocal(db, full_url, list_name, items);
                 }
                 break;
             }
             case 2: {
-                std::cout << "Enter List ID to retrieve: ";
-                std::string list_id;
-                std::cin >> list_id;
+                std::cout << "Enter List URL to retrieve: ";
+                std::string list_url;
+                std::cin >> list_url;
                 if (connected_to_proxy) {
                     std::cout << "Get list - CLOUD MODE" << std::endl;
                     request_json["command"] = "GET_LIST";
-                    request_json["parameters"] = {{"list_id", list_id}};;
+                    request_json["parameters"] = {{"list_url", list_url}};;
                 } 
                 else {
                     std::cout << "Get list - LOCAL MODE" << std::endl;
-                    json list_data = loadListFromSQLite(db, list_id);
+                    json list_data = loadListFromLocal(db, list_url);
                     if (!list_data.empty()) {
                         std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
                     } else {
