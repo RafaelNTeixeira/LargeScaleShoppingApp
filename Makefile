@@ -1,9 +1,9 @@
 .PHONY: database server runServer proxy runProxy runClient test testCRDT clean
-TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test database/local/shopping_lists.db
+TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test database/local/shopping_lists.db database/cloud/database.db
 
 all: clean database server proxy client 
 
-server: 
+server: database
 	g++ src/server/main.cpp -o src/server/server -lzmq -lsqlite3
 
 runServer:

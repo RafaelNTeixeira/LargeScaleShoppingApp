@@ -117,7 +117,7 @@ json loadListFromLocal(sqlite3* db, const std::string& list_url) {
 
     sqlite3_finalize(stmt);
 
-    list_data["products"] = items;
+    list_data["items"] = items;
 
     return list_data;
 }
