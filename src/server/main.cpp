@@ -31,8 +31,10 @@ int main() {
             response_json["message"] = "List created with ID " + list_id;
         } 
         else if (command == "GET_LIST") {
+            std::string list_id = request_json["parameters"]["list_id"];
+            // Apply get list from database here 
             response_json["status"] = "success";
-            response_json["message"] = "List retrieved";
+            response_json["message"] = "List retrieved: " + list_id;
         }
         else if (command == "PING") {
             response_json["status"] = "success";

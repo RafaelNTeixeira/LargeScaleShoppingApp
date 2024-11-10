@@ -138,7 +138,7 @@ int main() {
             case 1: {
                 std::string base_url = "https://myshoppinglistapp.com/list/";
                 // std::string list_id = generateUUID();
-                std::string list_id = generateUUID(); // TEMP. FOR TEST PURPOSES
+                std::string list_id = "123"; // TEMP. FOR TEST PURPOSES
                 std::string full_url = base_url + list_id;
                 std::string list_name = "My List";
                 if (connected_to_proxy) {
@@ -153,15 +153,16 @@ int main() {
                 break;
             }
             case 2: {
+                std::cout << "Enter List ID to retrieve: ";
+                std::string list_id;
+                std::cin >> list_id;
                 if (connected_to_proxy) {
                     std::cout << "Get list - CLOUD MODE" << std::endl;
                     request_json["command"] = "GET_LIST";
+                    request_json["parameters"] = {{"list_id", list_id}};;
                 } 
                 else {
                     std::cout << "Get list - LOCAL MODE" << std::endl;
-                    std::cout << "Enter List ID to retrieve: ";
-                    std::string list_id;
-                    std::cin >> list_id;
                     json list_data = loadListFromSQLite(db, list_id);
                     if (!list_data.empty()) {
                         std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
