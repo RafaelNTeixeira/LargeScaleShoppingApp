@@ -26,7 +26,7 @@ class BaseCounter {
     bool operator==(const BaseCounter<V, K>& o) const { return m == o.m; }
 
     V local() const {
-        V res = 0;
+        V res = 0; 
         if (m.count(id) != 0) {
             res += m.at(id);
         }

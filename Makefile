@@ -14,13 +14,13 @@ runProxy:
 	./src/proxy/proxy
 
 client: 
-	g++ src/client/main.cpp -o src/client/client -lzmq
+	g++ src/client/main.cpp -o src/client/client -lzmq -luuid
 
 runClient:
 	./src/client/client
 
 testCRDT: test/crdt/test.cpp src/crdt/*
-	g++ test/crdt/test.cpp -o test/crdt/test -O3 -lgtest -lgtest_main
+	g++ test/crdt/test.cpp -o test/crdt/test -O3 -lgtest -lgtest_main -pthread
 
 test: testCRDT
 	./test/crdt/test
