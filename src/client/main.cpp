@@ -22,7 +22,7 @@ bool isProxyAvailable(zmq::socket_t& socket) {
         int timeout = 1000; // 1 second
         socket.set(zmq::sockopt::rcvtimeo, timeout);
 
-        // Send a dummy message to check if proxy is available
+        // Send a ping message to check if proxy is available
         json request_json;
         request_json["command"] = "PING";
 
@@ -136,10 +136,10 @@ int main() {
 
         switch (choice) {
             case 1: {
-                // std::string base_url = "https://myshoppinglistapp.com/list/";
+                std::string base_url = "https://myshoppinglistapp.com/list/";
                 // std::string list_id = generateUUID();
-                // std::string full_url = base_url + list_id;
-                std::string full_url = "123"; // TEMP. FOR TEST PURPOSES
+                std::string list_id = generateUUID(); // TEMP. FOR TEST PURPOSES
+                std::string full_url = base_url + list_id;
                 std::string list_name = "My List";
                 if (connected_to_proxy) {
                     std::cout << "Create list - CLOUD MODE" << std::endl;
@@ -148,7 +148,7 @@ int main() {
                 }
                 else {
                     std::cout << "Create list - LOCAL MODE" << std::endl;
-                    //saveListToSQLite(db, list_id, list_name);
+                    saveListToSQLite(db, full_url, list_name);
                 }
                 break;
             }
@@ -159,14 +159,15 @@ int main() {
                 } 
                 else {
                     std::cout << "Get list - LOCAL MODE" << std::endl;
-                    // std::cout << "Enter List ID to retrieve: ";
-                    // std::cin >> list_id;
-                    // json list_data = loadListFromSQLite(db, list_id);
-                    // if (!list_data.empty()) {
-                    //     std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
-                    // } else {
-                    //     std::cout << "List not found or unable to load." << std::endl;
-                    // }
+                    std::cout << "Enter List ID to retrieve: ";
+                    std::string list_id;
+                    std::cin >> list_id;
+                    json list_data = loadListFromSQLite(db, list_id);
+                    if (!list_data.empty()) {
+                        std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
+                    } else {
+                        std::cout << "List not found or unable to load." << std::endl;
+                    }
                 }
                 break;
             }
