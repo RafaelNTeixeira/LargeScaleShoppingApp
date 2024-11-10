@@ -79,7 +79,7 @@ void saveListToLocal(sqlite3* db, const std::string& list_url, const std::string
 }
 
 json loadListFromLocal(sqlite3* db, const std::string& list_url) {
-    std::string sql = "SELECT * FROM shopping_lists WHERE list_url = '" + list_url + "';";
+    std::string sql = "SELECT * FROM shopping_lists WHERE url = '" + list_url + "';";
     sqlite3_stmt* stmt;
     json list_data;
 
@@ -91,7 +91,7 @@ json loadListFromLocal(sqlite3* db, const std::string& list_url) {
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_ROW) {
-        list_data["list_url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        list_data["url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
         list_data["name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
     } else {
         std::cerr << "List not found." << std::endl;

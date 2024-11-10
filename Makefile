@@ -1,5 +1,5 @@
 .PHONY: database server runServer proxy runProxy runClient test testCRDT clean
-TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test
+TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test database/local/shopping_lists.db
 
 all: clean database server proxy client 
 

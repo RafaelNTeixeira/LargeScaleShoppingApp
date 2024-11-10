@@ -3,6 +3,9 @@
 #include <unordered_map>
 #include <sqlite3.h> 
 #include <random>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 sqlite3* db;
 
@@ -31,29 +34,6 @@ std::string generateUniqueURL(const std::string& listName) {
     return listName + "/" + std::to_string(random_number);
 }
 
-void createShoppingList(const std::string& name) {
-    std::string url = generateUniqueURL(name); 
-    std::string sql = "INSERT INTO shopping_list (url, name) VALUES (?, ?);";
-    sqlite3_stmt* stmt;
-
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        return;
-    }
-
-    sqlite3_bind_text(stmt, 1, url.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, name.c_str(), -1, SQLITE_STATIC);
-
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
-        std::cerr << "Failed to create list: " << sqlite3_errmsg(db) << std::endl;
-    } else {
-        std::cout << "Created shopping list with URL: " << url << std::endl;
-    }
-
-    sqlite3_finalize(stmt);
-}
-
-
 void createShoppingListItem(const std::string& list_url, const std::string& item_name, const std::string& added_by, int total_added, int total_deleted) {
     std::string sql = "INSERT INTO shopping_list_items (list_url, item_name, added_by, total_added, total_deleted) VALUES (?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
@@ -78,8 +58,9 @@ void createShoppingListItem(const std::string& list_url, const std::string& item
     sqlite3_finalize(stmt);
 }
 
-void getShoppingList(const std::string& url) {
-    std::string sql = "SELECT url, name, created_at, updated_at FROM shopping_list WHERE url = ?;";
+void createShoppingList(const std::string& name, std::unordered_map<std::string, int>& items) {
+    std::string url = generateUniqueURL(name); 
+    std::string sql = "INSERT INTO shopping_list (url, name) VALUES (?, ?);";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
@@ -88,41 +69,92 @@ void getShoppingList(const std::string& url) {
     }
 
     sqlite3_bind_text(stmt, 1, url.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, name.c_str(), -1, SQLITE_STATIC);
 
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        std::cout << "List URL: " << sqlite3_column_text(stmt, 0)
-                  << "\nName: " << sqlite3_column_text(stmt, 1)
-                  << "\nCreated At: " << sqlite3_column_text(stmt, 2)
-                  << "\nUpdated At: " << sqlite3_column_text(stmt, 3) << std::endl;
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to create list: " << sqlite3_errmsg(db) << std::endl;
     } else {
-        std::cout << "No list found with URL: " << url << std::endl;
+        std::cout << "Created shopping list with URL: " << url << std::endl;
     }
 
     sqlite3_finalize(stmt);
+
+    for (const auto item : items) {
+        createShoppingListItem(url, item.first, "", item.second, 0);
+    }
 }
 
-void getShoppingListItems(const std::string& list_url) {
-    std::string sql = "SELECT id, item_name, acquired_quantity, added_by, total_added, total_deleted FROM shopping_list_items WHERE list_url = ?;";
+json getShoppingList(const std::string& url) {
+    std::string sql = "SELECT url, name, created_at, updated_at FROM shopping_list WHERE url = ?;";
     sqlite3_stmt* stmt;
+    json response_json;
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
         std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
-        return;
+        response_json["status"] = "error";
+        response_json["message"] = "Failed to fetch shopping list.";
+        return response_json;
+    }
+
+    sqlite3_bind_text(stmt, 1, url.c_str(), -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        response_json["status"] = "success";
+        response_json["url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        response_json["name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        response_json["created_at"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)));
+        response_json["updated_at"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)));
+        response_json["data"] = {
+            {"url", response_json["url"]},
+            {"name", response_json["name"]},
+            {"created_at", response_json["created_at"]},
+            {"updated_at", response_json["updated_at"]}
+        };
+    } else {
+        response_json["status"] = "error";
+        response_json["message"] = "No list found with URL: " + url;
+    }
+
+    sqlite3_finalize(stmt);
+    return response_json;
+}
+
+json getShoppingListItems(const std::string& list_url) {
+    std::string sql = "SELECT id, item_name, acquired_quantity, added_by, total_added, total_deleted FROM shopping_list_items WHERE list_url = ?;";
+    sqlite3_stmt* stmt;
+    json response_json;
+    json items_array = json::array();
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        response_json["status"] = "error";
+        response_json["message"] = "Failed to fetch shopping list items.";
+        return response_json;
     }
 
     sqlite3_bind_text(stmt, 1, list_url.c_str(), -1, SQLITE_STATIC);
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        std::cout << "Item ID: " << sqlite3_column_int(stmt, 0)
-                  << "\nItem Name: " << sqlite3_column_text(stmt, 1)
-                  << "\nAcquired Quantity: " << sqlite3_column_int(stmt, 2)
-                  << "\nAdded By: " << sqlite3_column_text(stmt, 3) 
-                  << "\nTotal Added: " << sqlite3_column_int(stmt, 4)
-                  << "\nTotal Deleted: " << sqlite3_column_int(stmt, 5)
-                  << "\n" << std::endl;
+        json item;
+        item["id"] = sqlite3_column_int(stmt, 0);
+        item["item_name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+        item["acquired_quantity"] = sqlite3_column_int(stmt, 2);
+        item["added_by"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)));
+        item["total_added"] = sqlite3_column_int(stmt, 4);
+        item["total_deleted"] = sqlite3_column_int(stmt, 5);
+        items_array.push_back(item);
+    }
+
+    if (items_array.empty()) {
+        response_json["status"] = "error";
+        response_json["message"] = "No items found for list URL: " + list_url;
+    } else {
+        response_json["status"] = "success";
+        response_json["items"] = items_array;
     }
 
     sqlite3_finalize(stmt);
+    return response_json;
 }
 
 void updateItemAcquiredQuantity(int item_id, int new_acquired_quantity) {
