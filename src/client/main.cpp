@@ -1,11 +1,25 @@
 #include <iostream>
+#include <string>
 #include <zmq.hpp>
 #include "ui.cpp"
 #include <nlohmann/json.hpp>
 #include <uuid/uuid.h>
 #include <sqlite3.h>
+#include "../crdt/shopping_list.h"
 
 using json = nlohmann::json;
+
+template <typename K>
+json serializeGSet(const GSet<K>& gset) {
+    json j;
+    for (const auto& entry : gset.elements()) {
+        const K& element = entry;
+        // Assuming Counter has a method to retrieve its value
+        int count = gset.read(element);  
+        j[element] = count;
+    }
+    return j;
+}
 
 std::string generateUUID() {
     uuid_t uuid;
@@ -67,13 +81,14 @@ int executeSQL(sqlite3* db, const char* sql) {
     return rc;
 }
 
-void saveListToLocal(sqlite3* db, const std::string& list_url, const std::string& list_name, const std::unordered_map<std::string, int>& items) {
-    std::string sql = "INSERT INTO shopping_lists (url, name) VALUES ('" + list_url + "', '" + list_name + "');";
+void saveListToLocal(sqlite3* db, ShoppingList& shoppingList) {
+    std::string sql = "INSERT INTO shopping_lists (url, name) VALUES ('" + shoppingList.getURL() + "', '" + shoppingList.getTitle() + "');";
     executeSQL(db, sql.c_str());
-    std::cout << "List saved to SQLite database with ID: " << list_url << std::endl;
+    std::cout << "List saved to SQLite database with ID: " << shoppingList.getURL() << std::endl;
 
-    for (const auto& item : items) {
-        std::string item_sql = "INSERT INTO shopping_lists_items (list_url, item_name, acquired_quantity) VALUES ('" + list_url + "', '" + item.first + "', " + std::to_string(item.second) + ");";
+    for (const auto& item : shoppingList.getHistory()) {
+        
+        std::string item_sql = "INSERT INTO shopping_lists_items (list_url, item_name, acquired_quantity) VALUES ('" + shoppingList.getURL() + "', '" + item.target + "', " + std::to_string(item.quantity) + ");";
         executeSQL(db, item_sql.c_str());
     }
 }
@@ -150,26 +165,26 @@ sqlite3* initializeDatabase() {
 }
 
 // Function to collect products from the user
-std::unordered_map<std::string, int> addProductsToList() {
-    std::unordered_map<std::string, int> items;
+ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
+    ShoppingListResponse shoppingListResponse;
     std::string product_name;
     int quantity;
 
     while (true) {
-        std::cout << "Enter product name (or type 'quit' to finish): ";
+        std::cout << "Enter product name (or type 'q' to finish): ";
         std::cin >> product_name;
 
-        if (product_name == "quit") {
+        if (product_name == "q") {
             break;
         }
 
         std::cout << "Enter quantity for " << product_name << ": ";
         std::cin >> quantity;
 
-        items[product_name] = quantity;
+        shoppingListResponse = shoppingList.createItem(product_name, quantity);
     }
 
-    return items;
+    return shoppingListResponse;
 }
 
 int main() {
@@ -204,16 +219,21 @@ int main() {
                 std::string list_name;
                 std::cin >> list_name;
 
-                std::unordered_map<std::string, int> items = addProductsToList();
+                ShoppingList shoppingList(list_id, list_name, full_url);
+
+                ShoppingListResponse shoppingListResponse = addProductsToList(shoppingList);
+                //std::cout << shoppingList.getItems() << std::endl;
+                json shoppingListJson = serializeGSet(shoppingList.getItems());
 
                 if (connected_to_proxy) {
                     std::cout << "Create list - CLOUD MODE" << std::endl;
                     request_json["command"] = "CREATE_LIST";
-                    request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", items}};
+                    request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
+                    //request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
                 }
                 else {
                     std::cout << "Create list - LOCAL MODE" << std::endl;
-                    saveListToLocal(db, full_url, list_name, items);
+                    saveListToLocal(db, shoppingList);
                 }
                 break;
             }
@@ -238,6 +258,7 @@ int main() {
                 break;
             }
             case 3: {
+                std::cout << "Thank You for using our platform!" <<std::endl;
                 return 0;
             }
             default: {
