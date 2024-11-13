@@ -5,7 +5,13 @@
 #include <nlohmann/json.hpp>
 #include <uuid/uuid.h>
 #include <sqlite3.h>
+#include <thread>
+#include <atomic>
 #include "../crdt/shopping_list.h"
+
+using json = nlohmann::json;
+
+std::atomic<bool> connected_to_proxy(false);
 
 using json = nlohmann::json;
 
@@ -187,6 +193,13 @@ ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
     return shoppingListResponse;
 }
 
+void checkProxyConnection(zmq::socket_t& socket) {
+    while (true) {
+        connected_to_proxy = isProxyAvailable(socket);
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+    }
+}
+
 int main() {
     sqlite3* db = initializeDatabase();
 
@@ -200,7 +213,8 @@ int main() {
     zmq::socket_t socket(context, ZMQ_DEALER);
     socket.connect("tcp://localhost:5556");
 
-    bool connected_to_proxy = isProxyAvailable(socket);
+    // Start a background thread to check proxy connection
+    std::thread connection_checker(checkProxyConnection, std::ref(socket));
 
     json request_json;
     int choice;
