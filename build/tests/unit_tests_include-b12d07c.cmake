@@ -1,0 +1,5 @@
+if(EXISTS "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests/unit_tests_tests-b12d07c.cmake")
+  include("/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests/unit_tests_tests-b12d07c.cmake")
+else()
+  add_test(unit_tests_NOT_BUILT-b12d07c unit_tests_NOT_BUILT-b12d07c)
+endif()

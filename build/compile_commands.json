@@ -1,0 +1,80 @@
+[
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/buffer.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/buffer.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/buffer.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/buffer.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/message.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/message.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/message.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/message.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/context.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/context.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/context.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/context.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/socket.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/socket.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/socket.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/socket.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/socket_ref.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/socket_ref.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/socket_ref.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/socket_ref.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/poller.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/poller.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/poller.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/poller.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/active_poller.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/active_poller.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/active_poller.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/active_poller.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/multipart.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/multipart.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/multipart.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/multipart.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/recv_multipart.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/recv_multipart.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/recv_multipart.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/recv_multipart.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/send_multipart.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/send_multipart.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/send_multipart.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/send_multipart.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/codec_multipart.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/codec_multipart.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/codec_multipart.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/codec_multipart.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/monitor.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/monitor.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/monitor.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/monitor.cpp.o"
+},
+{
+  "directory": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/build/tests",
+  "command": "/usr/bin/g++-11  -I/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq -isystem /home/carolina/anaconda3/include -g -o CMakeFiles/unit_tests.dir/utilities.cpp.o -c /home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/utilities.cpp",
+  "file": "/home/carolina/Documentos/masters/1st_year/1st_semester/SDLE/project/g12/external/cppzmq/tests/utilities.cpp",
+  "output": "tests/CMakeFiles/unit_tests.dir/utilities.cpp.o"
+}
+]
