@@ -1,7 +1,12 @@
 .PHONY: database server runServer proxy runProxy runClient test testCRDT clean
 TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test database/local/shopping_lists.db database/cloud/database.db
+SYSTEM_PACKAGES = $(shell cat system-requirements.txt)
 
 all: clean database server proxy client 
+
+system-requirments:
+	sudo apt-get update
+	sudo apt-get install -y $(SYSTEM_PACKAGES)
 
 server: database
 	g++ src/server/main.cpp -o src/server/server -lzmq -lsqlite3
