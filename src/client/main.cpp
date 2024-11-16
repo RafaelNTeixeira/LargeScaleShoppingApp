@@ -8,7 +8,7 @@
 #include <thread>
 #include <atomic>
 #include "../crdt/shopping_list.h"
-#include "mdclient.cpp"
+#include "majClient.cpp"
 
 using json = nlohmann::json;
 
