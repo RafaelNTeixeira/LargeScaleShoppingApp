@@ -69,7 +69,7 @@ public:
    // Receive update notification via SUB socket
    std::string receive_update() {
        zmq::message_t sub_msg;
-       if (m_sub_socket->recv(sub_msg, zmq::recv_flags::none)) {
+       if (m_sub_socket->recv(sub_msg, zmq::recv_flags::dontwait)) {
             std::cout << "Received active update through push socket" << sub_msg << std::endl;
            return std::string(static_cast<char*>(sub_msg.data()), sub_msg.size());
        }

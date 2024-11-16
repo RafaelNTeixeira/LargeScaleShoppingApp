@@ -241,7 +241,7 @@ int main() {
 
                 std::cout << "Create list - CLOUD MODE" << std::endl;
                 request_json["command"] = "CREATE_LIST";
-                request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};;
+                request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};
                 
                 // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
                 //request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
