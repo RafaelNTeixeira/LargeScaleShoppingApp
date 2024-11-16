@@ -10,9 +10,6 @@ int main() {
     zmq::socket_t socket(context, ZMQ_DEALER); // To receive tasks from broker
     socket.connect("tcp://localhost:5555");
 
-    zmq::socket_t pull_socket(context, ZMQ_PULL); // To receive list updates
-    pull_socket.connect("tcp://localhost:5557");
-
     std::cout << "Server is running and listening on 5555..." << std::endl;
 
     initDatabase();

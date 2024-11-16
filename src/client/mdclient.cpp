@@ -88,22 +88,31 @@ public:
    //  Send request to broker
    //  Takes ownership of request message and destroys it when sent.
    int send (std::string service, zmsg *&request_p) {
-       assert (request_p);
-       zmsg *request = request_p;
+        assert (request_p);
+        zmsg *request = request_p;
 
-       //  Prefix request with protocol frames
-       //  Frame 0: empty (REQ emulation)
-       //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
-       //  Frame 2: Service name (printable string)
-       request->push_front (service.c_str());
-       request->push_front (k_mdp_client.data());
-       request->push_front ("");
-       if (m_verbose) {
-           s_console ("I: send request to '%s' service:", service.c_str());
-           request->dump ();
-       }
-       request->send (*m_client);
-       return 0;
+        //  Prefix request with protocol frames
+        //  Frame 0: empty (REQ emulation)
+        //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
+        //  Frame 2: Service name (printable string)
+        request->push_front (service.c_str());
+        request->push_front (k_mdp_client.data());
+        request->push_front ("");
+        if (m_verbose) {
+            s_console ("I: send request to '%s' service:", service.c_str());
+            request->dump ();
+        }
+        if (service == "CREATE_LIST") {
+            request->send (*m_push_socket);
+            std::string endpoint = m_push_socket->get(zmq::sockopt::last_endpoint);
+            std::cout << "Sent list update through PUSH socket: " << endpoint << std::endl;
+        }
+        if (service == "GET_LIST") {
+            request->send (*m_client);
+            std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
+            std::cout << "Sent load list request through DEALER socket: " << endpoint << std::endl;
+        }
+        return 0;
    }
 
    //  ---------------------------------------------------------------------
@@ -136,10 +145,10 @@ public:
 
            return msg;     //  Success
        }
+       
        if (s_interrupted)
            std::cout << "W: interrupt received, killing client..." << std::endl;
-       else
-       if (m_verbose)
+       else if (m_verbose)
            s_console ("W: permanent error, abandoning request");
 
        return 0;
