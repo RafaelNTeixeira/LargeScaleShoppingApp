@@ -17,14 +17,8 @@ json concatenateResponses(const json& response_json1, const json& response_json2
         response_json["message"] = response_json2["message"];
     } else {
         response_json["status"] = "success";
-        
         response_json["shopping_list"] = response_json1["data"];
-
-        if (response_json2.contains("items")) {
-            response_json["items"] = response_json2["items"];
-        } else {
-            response_json["items"] = {};
-        }
+        response_json["items"] = response_json2.contains("items") ? response_json2["items"] : json::array();
     }
 
     return response_json;
@@ -42,27 +36,14 @@ json handleRequest(json& request) {
     std::string command = request["command"];
 
     if (command == "CREATE_LIST") {
-        std::string list_name = request["parameters"]["list_name"];
-        std::string list_url = request["parameters"]["list_url"];
-        std::unordered_map<std::string, int> items = request["parameters"]["list_items"];
-
-        createShoppingList(list_name, items);
-
+        
         response_json["status"] = "success";
-        //response_json["message"] = "List created with ID " + list_url;
+        response_json["message"] = "List created successfully.";
     } 
     else if (command == "GET_LIST") {
-        std::string list_url = request["parameters"]["list_url"];
-
-        json response_json1 = getShoppingList(list_url);
-        json response_json2 = getShoppingListItems(list_url);
-
-        response_json = concatenateResponses(response_json1, response_json2);
+        response_json["status"] = "error";
+        response_json["message"] = "Missing 'list_url' for GET_LIST request.";
     } 
-    else if (command == "PING") {
-        response_json["status"] = "success";
-        response_json["message"] = "Connected to server";
-    }
     else {
         response_json["status"] = "error";
         response_json["message"] = "Unknown Request";

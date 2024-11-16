@@ -4,19 +4,19 @@ TARGETS = database/database.db /src/client/client src/server/server src/proxy/pr
 all: clean database server proxy client 
 
 server: 
-	g++ src/server/main.cpp -o src/server/server -lzmq -lsqlite3
+	g++ -std=c++17 src/server/main.cpp -o src/server/server -lzmq -lsqlite3
 
 runServer:
 	./src/server/server
 
 proxy: 
-	g++ src/proxy/main.cpp -o src/proxy/proxy -lzmq
+	g++ -std=c++17 src/proxy/main.cpp -o src/proxy/proxy -lzmq
 
 runProxy:
 	./src/proxy/proxy
 
 client: 
-	g++ src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3 -pthread
+	g++ -std=c++17 src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3 -pthread
 
 runClient:
 	./src/client/client

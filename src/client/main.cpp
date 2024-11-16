@@ -8,10 +8,11 @@
 #include <thread>
 #include <atomic>
 #include "../crdt/shopping_list.h"
+#include "mdclient.cpp"
 
 using json = nlohmann::json;
 
-std::atomic<bool> connected_to_proxy(false);
+//std::atomic<bool> connected_to_proxy(false);
 
 using json = nlohmann::json;
 
@@ -193,12 +194,12 @@ ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
     return shoppingListResponse;
 }
 
-void checkProxyConnection(zmq::socket_t& socket) {
-    while (true) {
-        connected_to_proxy = isProxyAvailable(socket);
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
-    }
-}
+// void checkProxyConnection(zmq::socket_t& socket) {
+//     while (true) {
+//         connected_to_proxy = isProxyAvailable(socket);
+//         std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
+//     }
+// }
 
 int main() {
     sqlite3* db = initializeDatabase();
@@ -209,13 +210,12 @@ int main() {
         return 1;
     }
 
-    zmq::context_t context(1);
-    zmq::socket_t socket(context, ZMQ_DEALER);
-    socket.connect("tcp://localhost:5556");
+    mdcli client("tcp://localhost:5556", 1);
 
     // Start a background thread to check proxy connection
-    std::thread connection_checker(checkProxyConnection, std::ref(socket));
+    //std::thread connection_checker(checkProxyConnection, std::ref(socket));
 
+    bool connected_to_proxy = true;
     json request_json;
     int choice;
 
@@ -225,29 +225,29 @@ int main() {
 
         switch (choice) {
             case 1: {
-                std::string base_url = "https://myshoppinglistapp.com/list/";
-                std::string list_id = generateUUID();
-                std::string full_url = base_url + list_id;
+                // std::string base_url = "https://myshoppinglistapp.com/list/";
+                // std::string list_id = generateUUID();
+                // std::string full_url = base_url + list_id;
 
-                std::cout << "Give a name to your list: ";
-                std::string list_name;
-                std::cin >> list_name;
+                // std::cout << "Give a name to your list: ";
+                // std::string list_name;
+                // std::cin >> list_name;
 
-                ShoppingList shoppingList(list_id, list_name, full_url);
+                // ShoppingList shoppingList(list_id, list_name, full_url);
 
-                ShoppingListResponse shoppingListResponse = addProductsToList(shoppingList);
-                //std::cout << shoppingList.getItems() << std::endl;
-                json shoppingListJson = serializeGSet(shoppingList.getItems());
+                // ShoppingListResponse shoppingListResponse = addProductsToList(shoppingList);
+                // std::cout << shoppingList.getItems() << std::endl;
+                // json shoppingListJson = serializeGSet(shoppingList.getItems());
 
                 if (connected_to_proxy) {
                     std::cout << "Create list - CLOUD MODE" << std::endl;
                     request_json["command"] = "CREATE_LIST";
-                    request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
+                    // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
                     //request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
                 }
                 else {
                     std::cout << "Create list - LOCAL MODE" << std::endl;
-                    saveListToLocal(db, shoppingList);
+                    //saveListToLocal(db, shoppingList);
                 }
                 break;
             }
@@ -258,16 +258,16 @@ int main() {
                 if (connected_to_proxy) {
                     std::cout << "Get list - CLOUD MODE" << std::endl;
                     request_json["command"] = "GET_LIST";
-                    request_json["parameters"] = {{"list_url", list_url}};;
+                    //request_json["parameters"] = {{"list_url", list_url}};;
                 } 
                 else {
                     std::cout << "Get list - LOCAL MODE" << std::endl;
-                    json list_data = loadListFromLocal(db, list_url);
-                    if (!list_data.empty()) {
-                        std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
-                    } else {
-                        std::cout << "List not found or unable to load." << std::endl;
-                    }
+                    // json list_data = loadListFromLocal(db, list_url);
+                    // if (!list_data.empty()) {
+                    //     std::cout << "Retrieved List: " << list_data.dump(4) << std::endl;
+                    // } else {
+                    //     std::cout << "List not found or unable to load." << std::endl;
+                    // }
                 }
                 break;
             }
@@ -281,18 +281,49 @@ int main() {
             }
         }
 
-        std::string request = request_json.dump();;
-        std::cout << request << std::endl;
+        if (choice == 1 || choice == 2) {
+            std::string request = request_json.dump();
 
-        zmq::message_t msg(request.size());
-        memcpy(msg.data(), request.c_str(), request.size());
-        socket.send(msg, zmq::send_flags::none);
+            if (choice == 1) {
+                // Submits update made to list (PUSH)
+                client.send_update(request);
+            } else if (choice == 2) {
+                // Ask for a list (DEALER)
+                zmsg* msg = new zmsg(request.c_str());
+                client.send("GET_LIST", msg);
+                delete msg;
+            }
 
-        zmq::message_t reply;
-        socket.recv(reply, zmq::recv_flags::none);
+            zmsg* reply = client.recv();
+            if (reply) {
+                std::string response(reinterpret_cast<const char*>(reply->pop_front().c_str()), reply->pop_front().size());
+                std::cout << "Response from server: " << response << std::endl;
+                delete reply;
+            } else {
+                std::cout << "No response received from the server." << std::endl;
+            }
+        }
 
-        std::string response(static_cast<char*>(reply.data()), reply.size());
-        std::cout << "Response from server: " << response << std::endl;
+        // Check for list updates via SUB socket
+        if (choice != 3) {
+            std::string sub_update = client.receive_update();
+            if (!sub_update.empty()) {
+                std::cout << "List update notification: " << sub_update << std::endl;
+            }
+        }
+
+        // std::string request = request_json.dump();;
+        // std::cout << request << std::endl;
+
+        // zmq::message_t msg(request.size());
+        // memcpy(msg.data(), request.c_str(), request.size());
+        // socket.send(msg, zmq::send_flags::none);
+
+        // zmq::message_t reply;
+        // socket.recv(reply, zmq::recv_flags::none);
+
+        // std::string response(static_cast<char*>(reply.data()), reply.size());
+        // std::cout << "Response from server: " << response << std::endl;
     }
 
     return 0;
