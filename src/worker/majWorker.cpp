@@ -73,7 +73,7 @@ public:
             s_console ("I: connecting to broker at %s...", m_broker.c_str());
 
         // Register service with broker
-        // Sent READY to broker
+        std::cout << "Sent READY to broker" << std::endl;
         send_to_broker (k_mdpw_ready.data(), m_service, NULL);
 
         //  If liveness hits zero, queue is considered disconnected
