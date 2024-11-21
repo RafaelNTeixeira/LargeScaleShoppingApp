@@ -1,18 +1,20 @@
-#include <iostream>
-#include <string>
-#include <zmq.hpp>
-#include "ui.cpp"
-#include <nlohmann/json.hpp>
-#include <uuid/uuid.h>
 #include <sqlite3.h>
-#include <thread>
+#include <uuid/uuid.h>
+
 #include <atomic>
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <string>
+#include <thread>
+#include <zmq.hpp>
+
 #include "../crdt/shopping_list.h"
 #include "majClient.cpp"
+#include "ui.cpp"
 
 using json = nlohmann::json;
 
-//std::atomic<bool> connected_to_proxy(false);
+// std::atomic<bool> connected_to_proxy(false);
 
 using json = nlohmann::json;
 
@@ -22,7 +24,7 @@ json serializeGSet(const GSet<K>& gset) {
     for (const auto& entry : gset.elements()) {
         const K& element = entry;
         // Assuming Counter has a method to retrieve its value
-        int count = gset.read(element);  
+        int count = gset.read(element);
         j[element] = count;
     }
     return j;
@@ -40,38 +42,38 @@ std::string generateUUID() {
 
 bool isProxyAvailable(zmq::socket_t& socket) {
     try {
-        int timeout = 1000; // 1 second
+        int timeout = 1000;  // 1 second
         socket.set(zmq::sockopt::rcvtimeo, timeout);
 
         // Send a ping message to check if proxy is available
         json request_json;
         request_json["command"] = "PING";
 
-        std::string request_str  = request_json.dump();
+        std::string request_str = request_json.dump();
 
         zmq::message_t request(request_str.size());
         memcpy(request.data(), request_str.c_str(), request_str.size());
 
-        socket.send(request, zmq::send_flags::none); // Send message to proxy
+        socket.send(request, zmq::send_flags::none);  // Send message to proxy
 
         zmq::message_t reply;
-        zmq::recv_result_t result = socket.recv(reply, zmq::recv_flags::none); // Wait for reply (or timeout)
+        zmq::recv_result_t result = socket.recv(reply, zmq::recv_flags::none);  // Wait for reply (or timeout)
 
         if (result.has_value()) {
             std::cout << "Connected to the proxy, operating in cloud mode..." << std::endl;
-            return true; // Proxy is available
+            return true;  // Proxy is available
         } else {
             std::cout << "Timeout occurred, proxy not available. Operating in local mode..." << std::endl;
-            return false; // Proxy is unavailable
+            return false;  // Proxy is unavailable
         }
     } catch (const zmq::error_t& e) {
         std::cout << "Could not connect to the proxy, operating in local mode..." << std::endl;
-        return false; // Proxy is unavailable
+        return false;  // Proxy is unavailable
     }
 }
 
 // Method to print query results
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     for (int i = 0; i < argc; i++) {
         std::cout << azColName[i] << ": " << argv[i] << std::endl;
     }
@@ -79,7 +81,7 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 }
 
 int executeSQL(sqlite3* db, const char* sql) {
-    char *errMsg = nullptr;
+    char* errMsg = nullptr;
     int rc = sqlite3_exec(db, sql, callback, 0, &errMsg);
     if (rc != SQLITE_OK) {
         std::cerr << "SQL error: " << errMsg << std::endl;
@@ -94,7 +96,6 @@ void saveListToLocal(sqlite3* db, ShoppingList& shoppingList) {
     std::cout << "List saved to SQLite database with ID: " << shoppingList.getURL() << std::endl;
 
     for (const auto& item : shoppingList.getHistory()) {
-        
         std::string item_sql = "INSERT INTO shopping_lists_items (list_url, item_name, acquired_quantity) VALUES ('" + shoppingList.getURL() + "', '" + item.target + "', " + std::to_string(item.quantity) + ");";
         executeSQL(db, item_sql.c_str());
     }
@@ -121,7 +122,6 @@ json loadListFromLocal(sqlite3* db, const std::string& list_url) {
 
     sqlite3_finalize(stmt);
 
-
     std::string sql_items = "SELECT item_name, acquired_quantity FROM shopping_lists_items WHERE list_url = '" + list_url + "';";
     rc = sqlite3_prepare_v2(db, sql_items.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
@@ -147,25 +147,25 @@ json loadListFromLocal(sqlite3* db, const std::string& list_url) {
 sqlite3* initializeDatabase() {
     sqlite3* db;
     int rc = sqlite3_open("database/local/shopping_lists.db", &db);
-    
+
     if (rc) {
         std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
         return nullptr;
     }
 
-    const char* createTableSQL1 = 
+    const char* createTableSQL1 =
         "CREATE TABLE IF NOT EXISTS shopping_lists ("
         "url TEXT PRIMARY KEY, "
         "name TEXT NOT NULL);";
     executeSQL(db, createTableSQL1);
 
-    const char* createTableSQL2 = 
+    const char* createTableSQL2 =
         "CREATE TABLE IF NOT EXISTS shopping_lists_items ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
         "list_url TEXT NOT NULL, "
         "item_name TEXT NOT NULL, "
         "acquired_quantity INTEGER DEFAULT 0, "
-        "FOREIGN KEY(list_url) REFERENCES shopping_lists(list_url));"; 
+        "FOREIGN KEY(list_url) REFERENCES shopping_lists(list_url));";
     executeSQL(db, createTableSQL2);
 
     return db;
@@ -205,21 +205,23 @@ int main() {
     sqlite3* db = initializeDatabase();
 
     std::cout << "Initialized local db..." << std::endl;
-    
+
     if (!db) {
         return 1;
     }
 
+    s_catch_signals();
+
     mdcli client("tcp://localhost:5556", 1);
 
     // Start a background thread to check proxy connection
-    //std::thread connection_checker(checkProxyConnection, std::ref(socket));
+    // std::thread connection_checker(checkProxyConnection, std::ref(socket));
 
     // bool connected_to_proxy = true;
     json request_json;
     int choice;
 
-    while (true) {
+    while (s_interrupted == 0) {
         displayMenu();
         std::cin >> choice;
 
@@ -241,24 +243,25 @@ int main() {
 
                 std::cout << "Create list - CLOUD MODE" << std::endl;
                 request_json["command"] = "CREATE_LIST";
-                //request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};
-                
+                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};
+
                 // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
-                //request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
+                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
                 break;
             }
             case 2: {
                 std::cout << "Enter List URL to retrieve: ";
                 std::string list_url;
                 std::cin >> list_url;
-                
+
                 std::cout << "Get list - CLOUD MODE" << std::endl;
                 request_json["command"] = "GET_LIST";
                 break;
             }
             case 3: {
-                std::cout << "Thank You for using our platform!" <<std::endl;
-                return 0;
+                std::cout << "Thank You for using our platform!" << std::endl;
+                s_interrupted = 1;
+                break;
             }
             default: {
                 std::cout << "Invalid choice. Try again.\n\n";
