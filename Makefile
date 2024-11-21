@@ -1,27 +1,27 @@
-.PHONY: database server runServer proxy runProxy runClient test testCRDT clean
-TARGETS = database/database.db /src/client/client src/server/server src/proxy/proxy test/crdt/test database/local/shopping_lists.db database/cloud/database.db
+.PHONY: database worker runWorker broker runBroker runClient test testCRDT clean
+TARGETS = database/database.db /src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
 SYSTEM_PACKAGES = $(shell cat system-requirements.txt)
 
-all: clean database server proxy client 
+all: clean database worker broker client 
 
-system-requirments:
+system-requirements:
 	sudo apt-get update
 	sudo apt-get install -y $(SYSTEM_PACKAGES)
 
-server: database
-	g++ src/server/main.cpp -o src/server/server -lzmq -lsqlite3
+worker: 
+	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -lsqlite3
 
-runServer:
-	./src/server/server
+runWorker:
+	./src/worker/worker
 
-proxy: 
-	g++ src/proxy/main.cpp -o src/proxy/proxy -lzmq
+broker: 
+	g++ -std=c++17 src/broker/main.cpp -o src/broker/broker -lzmq
 
-runProxy:
-	./src/proxy/proxy
+runBroker:
+	./src/broker/broker
 
 client: 
-	g++ src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3
+	g++ -std=c++17 src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3 -pthread
 
 runClient:
 	./src/client/client
