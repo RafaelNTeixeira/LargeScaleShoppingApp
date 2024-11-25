@@ -9,7 +9,7 @@ using json = nlohmann::json;
 
 int main(int argc, char *argv []) {
     int verbose = (argc > 1 && strcmp (argv [1], "-v") == 0);
-    mdwrk session ("tcp://localhost:5555", "echo", verbose);
+    mdwrk session ("tcp://localhost:5555", "GET_LIST", verbose);
 
     std::cout << "Worker is running..." << std::endl;
 

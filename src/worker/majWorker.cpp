@@ -118,7 +118,8 @@ public:
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
-                std::cout << "Received message from broker" << std::endl;
+                std::cout << "Received message from broker:" << std::endl;
+                msg->dump();
                 if (m_verbose) {
                     s_console ("I: received message from broker:");
                     msg->dump ();

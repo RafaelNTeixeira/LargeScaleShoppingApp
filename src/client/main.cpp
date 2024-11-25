@@ -23,7 +23,7 @@ json serializeGSet(const GSet<K>& gset) {
     json j;
     for (const auto& entry : gset.elements()) {
         const K& element = entry;
-        // Assuming Counter has a method to retrieve its value
+
         int count = gset.read(element);
         j[element] = count;
     }

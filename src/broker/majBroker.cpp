@@ -7,7 +7,7 @@
 #include <list>
 
 static constexpr uint32_t n_heartbeat_liveness = 3;
-static constexpr uint32_t n_heartbeat_interval =  3500;    //  msecs
+static constexpr uint32_t n_heartbeat_interval =  2500;    //  msecs
 static constexpr uint32_t n_heartbeat_expiry =  n_heartbeat_interval * n_heartbeat_liveness;    //  msecs
 
 struct service;
@@ -34,6 +34,10 @@ struct service {
     size_t m_workers;               //  How many workers we have
 
     service(std::string name): m_name(name) {}
+
+    void print() const {
+        std::cout << "NrRequests: " << m_requests.size() << "; NrWorkers: " << m_waiting.size() << std::endl;
+    }
 };
 
 class broker {
@@ -137,15 +141,16 @@ private:
         std::cout << "service dispatched: " << srv << std::endl;
         assert (srv);
         if (msg) {                    //  Queue message if any
+            std::cout << "Queue message: " << msg << std::endl;
             srv->m_requests.push_back(msg);
             msg->dump();
         }
 
         purge_workers ();
+        std::cout << "service name: " << srv->m_name << std::endl;
         std::cout << "workers waiting count: " << srv->m_waiting.size() << std::endl;
         std::cout << "Requests count: " << srv->m_requests.size() << std::endl;
         while (! srv->m_waiting.empty() && ! srv->m_requests.empty()) {
-            std::cout << "Entered while in service_dispatch()" << std::endl;
             // Choose the most recently seen idle worker; others might be about to expire
             auto wrk = srv->m_waiting.begin();
             auto next = wrk;
@@ -259,6 +264,7 @@ private:
                     //  Attach worker to service and mark as idle
                     std::cout << "Attach worker to service and mark as idle" << std::endl;
                     std::string service_name = (char *) msg->pop_front ().c_str();
+                    std::cout << "Service name received from worker: " << service_name << std::endl;
                     wrk->m_service = service_require (service_name);
                     wrk->m_service->m_workers++;
                     worker_waiting (wrk);
@@ -353,8 +359,9 @@ private:
         assert (msg && msg->parts () >= 2);     //  Service name + body
 
         std::string service_name =(char *) msg->pop_front().c_str();
+        std::cout << "Service name received from client: " << service_name << std::endl;
         service *srv = service_require (service_name);
-        //  Set reply return address to client sender
+        // Set reply return address to client sender
         msg->wrap (sender.c_str(), "");
         if (service_name.length() >= 4 &&  service_name.find_first_of("mmi.") == 0) {
             service_internal (service_name, msg);
@@ -381,66 +388,78 @@ void start_brokering() {
 
         // Process client list updates
         if (items [0].revents & ZMQ_POLLIN) {
-                std::cout << "Entered process client list updates" << std::endl;
-                zmsg *msg = new zmsg(*m_pull_socket);
+            std::cout << "Entered process client list updates" << std::endl;
+            zmsg *msg = new zmsg(*m_pull_socket);
 
-                if (m_verbose) {
-                    s_console ("I: received message:");
-                    msg->dump ();
-                }
+            if (m_verbose) {
+                s_console ("I: received message:");
+                msg->dump ();
+            }
 
-                // IN PROGRESS. NEED A WAY TO GET CLIENT ID THROUGH A PUSH SOCKET SO THAT WE CAN QUEUE A MESSAGE IN THE RIGHT FORMAT
-                // DOESN'T RECEIVE SENDER
-                std::string sender = (char*)msg->pop_front ().c_str();
-                std::cout << "SENDER: " << sender << std::endl;
+            // IN PROGRESS. NEED A WAY TO GET CLIENT ID THROUGH A PUSH SOCKET SO THAT WE CAN QUEUE A MESSAGE IN THE RIGHT FORMAT
+            // DOESN'T RECEIVE SENDER
+            std::string sender = (char*)msg->pop_front ().c_str();
+            std::cout << "SENDER: " << sender << std::endl;
         }
         // Process client list requests
         if (items [1].revents & ZMQ_POLLIN) {
-                std::cout << "Entered process client list requests" << std::endl;
-                zmsg *msg = new zmsg(*m_client);
-                if (m_verbose) {
-                    s_console ("I: received message:");
-                    msg->dump ();
-                }
-                std::string sender = (char*)msg->pop_front ().c_str();
-                std::cout << "SENDER: " << sender << std::endl;
-                msg->pop_front (); //empty message
-                std::string header = (char*)msg->pop_front ().c_str();
+            std::cout << "Entered process client list requests" << std::endl;
+            zmsg *msg = new zmsg(*m_client);
+            if (m_verbose) {
+                s_console ("I: received message:");
+                msg->dump ();
+            }
+            std::string sender = (char*)msg->pop_front ().c_str();
+            std::cout << "SENDER: " << sender << std::endl;
+            msg->pop_front (); //empty message
+            std::string header = (char*)msg->pop_front ().c_str();
 
-                std::cout << "HEADER: " << header << std::endl;
+            std::cout << "HEADER: " << header << std::endl;
 
-                if (header.compare(k_mdp_client.data()) == 0) {
-                    client_process (sender, msg);
-                }
-                else {
-                    s_console ("E: invalid message:");
-                    msg->dump ();
-                    delete msg;
-                }
+            if (header.compare(k_mdp_client.data()) == 0) {
+                client_process (sender, msg);
+            }
+            else {
+                s_console ("E: invalid message:");
+                msg->dump ();
+                delete msg;
+            }
+
+            std::cout << "Services:" << std::endl;
+            for (const auto& pair : m_services) {
+                std::cout << "Service Key: " << pair.first << " -> ";
+                pair.second->print();
+            }
         }
         // Process workers tasks requests
-        if (items [1].revents & ZMQ_POLLIN) {
-                std::cout << "Entered process workers tasks requests" << std::endl;
-                zmsg *msg = new zmsg(*m_worker);
-                if (m_verbose) {
-                    s_console ("I: received message:");
-                    msg->dump ();
-                }
-                std::string sender = (char*)msg->pop_front ().c_str();
-                std::cout << "SENDER: " << sender << std::endl;
-                msg->pop_front (); //empty message
-                std::string header = (char*)msg->pop_front ().c_str();
+        if (items [2].revents & ZMQ_POLLIN) {
+            std::cout << "Entered process workers tasks requests" << std::endl;
+            zmsg *msg = new zmsg(*m_worker);
+            if (m_verbose) {
+                s_console ("I: received message:");
+                msg->dump ();
+            }
+            std::string sender = (char*)msg->pop_front ().c_str();
+            std::cout << "SENDER: " << sender << std::endl;
+            msg->pop_front (); //empty message
+            std::string header = (char*)msg->pop_front ().c_str();
 
-                std::cout << "HEADER: " << header << std::endl;
+            std::cout << "HEADER: " << header << std::endl;
 
-                if (header.compare(k_mdpw_worker.data()) == 0) {
-                    worker_process (sender, msg);
-                }
-                else {
-                    s_console ("E: invalid message:");
-                    msg->dump ();
-                    delete msg;
-                }
+            if (header.compare(k_mdpw_worker.data()) == 0) {
+                worker_process (sender, msg);
+            }
+            else {
+                s_console ("E: invalid message:");
+                msg->dump ();
+                delete msg;
+            }
+
+            std::cout << "Services:" << std::endl;
+            for (const auto& pair : m_services) {
+                std::cout << "Service Key: " << pair.first << " -> ";
+                pair.second->print();
+            }
         }
         // Publish to clients list updates
         //   if (items [2].revents & ZMQ_POLLIN) {
