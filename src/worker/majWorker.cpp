@@ -54,6 +54,8 @@ public:
                 mdps_commands [(int) *command].data());
             msg->dump ();
         }
+        std::cout << "Sent to broker: " << std::endl;
+        msg->dump();
         msg->send (*m_worker);
         delete msg;
     }
@@ -76,7 +78,7 @@ public:
         std::cout << "Sent READY to broker" << std::endl;
         send_to_broker (k_mdpw_ready.data(), m_service, NULL);
 
-        //  If liveness hits zero, queue is considered disconnected
+        // If liveness hits zero, queue is considered disconnected
         m_liveness = n_heartbeat_liveness;
         m_heartbeat_at = s_clock () + m_heartbeat;
     }
@@ -101,7 +103,8 @@ public:
         zmsg *reply = reply_p;
         assert (reply || !m_expect_reply);
         if (reply) {
-            std::cout << "Entered if reply" << std::endl;
+            std::cout << "Worker has reply:" << std::endl;
+            reply->dump();
             assert (m_reply_to.size()!=0);
             reply->wrap (m_reply_to.c_str(), "");
             m_reply_to = "";

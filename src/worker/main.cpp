@@ -18,6 +18,8 @@ int main(int argc, char *argv []) {
     zmsg *reply = 0;
     while (true) {
         zmsg *request = session.recv (reply);
+        std::cout << "Worker got request: " << std::endl;
+        request->dump();
         if (request == 0) {
             break; //  Worker was interrupted
         }

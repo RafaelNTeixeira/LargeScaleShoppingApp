@@ -161,8 +161,10 @@ private:
             }
             
             zmsg *msg = srv->m_requests.front();
+            std::cout << "Message before worker_send:" << std::endl;
+            msg->dump();
             srv->m_requests.pop_front();
-            std::cout << "Sent REQUEST to worker" << std::endl;
+            std::cout << "Sent REQUEST to worker:" << std::endl;
             worker_send (*wrk, k_mdpw_request.data(), "", msg);
             m_waiting.erase(*wrk);
             srv->m_waiting.erase(wrk);
@@ -279,7 +281,9 @@ private:
                     std::string client = msg->unwrap ();
                     msg->wrap (k_mdp_client.data(), wrk->m_service->m_name.c_str());
                     msg->wrap (client.c_str(), "");
-                    msg->send (*m_worker);
+                    std::cout << "Sending client:" << std::endl;
+                    msg->dump();
+                    msg->send (*m_client);
                     worker_waiting (wrk);
                 }
                 else {
@@ -324,8 +328,13 @@ private:
         if (option.size()>0) {                 //  Optional frame after command
             msg->push_front (option.c_str());
         }
-        msg->push_front (command);
-        msg->push_front (k_mdpw_worker.data());
+
+        s_console("I: Pushing command identifier (Frame 2): %s", command);
+        msg->push_front(command);
+
+        s_console("I: Pushing protocol identifier (Frame 1): %s", k_mdpw_worker.data());
+        msg->push_front(k_mdpw_worker.data());
+
         //  Stack routing envelope to start of message
         msg->wrap(worker->m_identity.c_str(), "");
 
@@ -334,6 +343,7 @@ private:
                 mdps_commands [(int) *command].data());
             msg->dump ();
         }
+        msg->dump ();
         msg->send (*m_worker);
         delete msg;
     }

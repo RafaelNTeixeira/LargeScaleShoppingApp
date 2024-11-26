@@ -274,19 +274,29 @@ int main() {
 
             if (choice == 1) {
                 // Submits update made to list (PUSH)
-                zmsg* msg = new zmsg(request.c_str());
+                zmsg* msg = new zmsg();
                 client.send("CREATE_LIST", msg);
             } else if (choice == 2) {
                 // Ask for a list (DEALER)
-                zmsg* msg = new zmsg(request.c_str());
+                zmsg* msg = new zmsg("url_list");
                 client.send("GET_LIST", msg);
                 delete msg;
             }
 
             zmsg* reply = client.recv();
             if (reply) {
-                std::string response(reinterpret_cast<const char*>(reply->pop_front().c_str()), reply->pop_front().size());
-                std::cout << "Response from server: " << response << std::endl;
+                std::cout << "Reply received: " <<  std::endl;
+                reply->dump();
+
+                ustring temp = reply->pop_front();  // Call pop_front only once
+                if (temp.empty()) {
+                    std::cerr << "Error: Received empty reply!" << std::endl;
+                    // Handle the error, return, or exit
+                } else {
+                    std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                    std::cout << "Response from server: " << response << std::endl;
+                }
+                
                 delete reply;
             } else {
                 std::cout << "No response received from the server." << std::endl;
