@@ -54,6 +54,8 @@ public:
                 mdps_commands [(int) *command].data());
             msg->dump ();
         }
+        std::cout << "Sent to broker: " << std::endl;
+        msg->dump();
         msg->send (*m_worker);
         delete msg;
     }
@@ -73,10 +75,10 @@ public:
             s_console ("I: connecting to broker at %s...", m_broker.c_str());
 
         // Register service with broker
-        // Sent READY to broker
+        std::cout << "Sent READY to broker" << std::endl;
         send_to_broker (k_mdpw_ready.data(), m_service, NULL);
 
-        //  If liveness hits zero, queue is considered disconnected
+        // If liveness hits zero, queue is considered disconnected
         m_liveness = n_heartbeat_liveness;
         m_heartbeat_at = s_clock () + m_heartbeat;
     }
@@ -101,7 +103,8 @@ public:
         zmsg *reply = reply_p;
         assert (reply || !m_expect_reply);
         if (reply) {
-            std::cout << "Entered if reply" << std::endl;
+            std::cout << "Worker has reply:" << std::endl;
+            reply->dump();
             assert (m_reply_to.size()!=0);
             reply->wrap (m_reply_to.c_str(), "");
             m_reply_to = "";
@@ -118,7 +121,8 @@ public:
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
-                std::cout << "Received message from broker" << std::endl;
+                std::cout << "Received message from broker:" << std::endl;
+                msg->dump();
                 if (m_verbose) {
                     s_console ("I: received message from broker:");
                     msg->dump ();

@@ -9,7 +9,7 @@ using json = nlohmann::json;
 
 int main(int argc, char *argv []) {
     int verbose = (argc > 1 && strcmp (argv [1], "-v") == 0);
-    mdwrk session ("tcp://localhost:5555", "echo", verbose);
+    mdwrk session ("tcp://localhost:5555", "GET_LIST", verbose);
 
     std::cout << "Worker is running..." << std::endl;
 
@@ -18,6 +18,8 @@ int main(int argc, char *argv []) {
     zmsg *reply = 0;
     while (true) {
         zmsg *request = session.recv (reply);
+        std::cout << "Worker got request: " << std::endl;
+        request->dump();
         if (request == 0) {
             break; //  Worker was interrupted
         }

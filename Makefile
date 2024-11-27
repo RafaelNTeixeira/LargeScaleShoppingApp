@@ -1,5 +1,5 @@
 .PHONY: database worker runWorker broker runBroker runClient test testCRDT clean
-TARGETS = database/database.db /src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
+TARGETS = database/cloud/database.db database/local/* src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
 
 all: clean database worker broker client 
 
