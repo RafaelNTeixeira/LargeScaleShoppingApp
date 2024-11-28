@@ -151,8 +151,13 @@ public:
                 if (command.compare (k_mdpw_request.data()) == 0) {
                     // We should pop and save as many addresses as there are
                     // up to a null part, but for now, just save one...
+                    std::cout << "Reply to:" << std::endl;
+                    msg->dump();
                     m_reply_to = msg->unwrap ();
-                    return msg;     //  We have a request to process
+                    ustring url_list = msg->pop_front();
+                    std::string url_list_str = (char*) url_list.c_str();
+                    std::cout << "url_list received: " << url_list_str << std::endl;
+                    return new zmsg("reply");     //  We have a request to process
                 }
                 else if (command.compare (k_mdpw_heartbeat.data()) == 0) {
                     // Do nothing for heartbeats
