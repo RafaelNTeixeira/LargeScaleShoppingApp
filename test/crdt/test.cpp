@@ -433,6 +433,125 @@ TEST_F(ShoppingListTest, UpdateList) {
     EXPECT_FALSE(r.first);
 }
 
+TEST_F(ShoppingListTest, BothIncrement) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 20);
+}
+
+TEST_F(ShoppingListTest, BothDecrease) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    r = u1.buyItem("Banana", 10);
+    r = u2.buyItem("Banana", 20);
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+}
+
+TEST_F(ShoppingListTest, IncreaseAndDelete) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    r = u1.increaseItem("Banana");
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 11);
+
+    r = u2.updateList(u1);
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u2.elements().count("Banana"), 1);
+    EXPECT_EQ(u2.elementsRead()["Banana"], 11);
+
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+}
+
+TEST_F(ShoppingListTest, DecreaseAndDelete) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    r = u1.buyItem("Banana", 10);
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+
+    r = u2.updateList(u1);
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u2.elements().count("Banana"), 0);
+    EXPECT_EQ(u2.elementsRead()["Banana"], 0);
+
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+
+    r = u1.createItem("Banana", 10);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 10);
+}
+
+TEST_F(ShoppingListTest, MultipleDeletes) {
+    ShoppingListResponse r;
+    r = u1.createItem("Banana", 10);
+    r = u2.createItem("Banana", 10);
+    r = u1.updateList(u2);
+
+    r = u1.removeItem("Banana");
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+
+    r = u2.updateList(u1);
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u2.elements().count("Banana"), 0);
+    EXPECT_EQ(u2.elementsRead()["Banana"], 0);
+
+    r = u2.removeItem("Banana");
+    r = u1.updateList(u2);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 0);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 0);
+
+    r = u1.createItem("Banana", 10);
+
+    EXPECT_TRUE(r.first);
+    EXPECT_EQ(u1.elements().count("Banana"), 1);
+    EXPECT_EQ(u1.elementsRead()["Banana"], 10);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

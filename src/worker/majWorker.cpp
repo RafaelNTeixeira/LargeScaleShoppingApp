@@ -54,6 +54,8 @@ public:
                 mdps_commands [(int) *command].data());
             msg->dump ();
         }
+        std::cout << "Sent to broker: " << std::endl;
+        msg->dump();
         msg->send (*m_worker);
         delete msg;
     }
@@ -76,7 +78,7 @@ public:
         std::cout << "Sent READY to broker" << std::endl;
         send_to_broker (k_mdpw_ready.data(), m_service, NULL);
 
-        //  If liveness hits zero, queue is considered disconnected
+        // If liveness hits zero, queue is considered disconnected
         m_liveness = n_heartbeat_liveness;
         m_heartbeat_at = s_clock () + m_heartbeat;
     }
@@ -101,7 +103,8 @@ public:
         zmsg *reply = reply_p;
         assert (reply || !m_expect_reply);
         if (reply) {
-            std::cout << "Entered if reply" << std::endl;
+            std::cout << "Worker has reply:" << std::endl;
+            reply->dump();
             assert (m_reply_to.size()!=0);
             reply->wrap (m_reply_to.c_str(), "");
             m_reply_to = "";
@@ -118,7 +121,8 @@ public:
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
-                std::cout << "Received message from broker" << std::endl;
+                std::cout << "Received message from broker:" << std::endl;
+                msg->dump();
                 if (m_verbose) {
                     s_console ("I: received message from broker:");
                     msg->dump ();
@@ -147,8 +151,13 @@ public:
                 if (command.compare (k_mdpw_request.data()) == 0) {
                     // We should pop and save as many addresses as there are
                     // up to a null part, but for now, just save one...
+                    std::cout << "Reply to:" << std::endl;
+                    msg->dump();
                     m_reply_to = msg->unwrap ();
-                    return msg;     //  We have a request to process
+                    ustring url_list = msg->pop_front();
+                    std::string url_list_str = (char*) url_list.c_str();
+                    std::cout << "url_list received: " << url_list_str << std::endl;
+                    return new zmsg("reply");     //  We have a request to process
                 }
                 else if (command.compare (k_mdpw_heartbeat.data()) == 0) {
                     // Do nothing for heartbeats

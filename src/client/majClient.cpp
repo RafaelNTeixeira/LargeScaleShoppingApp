@@ -128,14 +128,17 @@ class mdcli {
         //  If we got a reply, process it
         if (items[0].revents & ZMQ_POLLIN) {
             zmsg *msg = new zmsg(*m_client);
+            std::cout << "Client got reply:" << std::endl;
+            msg->dump();
+
             if (m_verbose) {
                 s_console("I: received reply:");
                 msg->dump();
             }
-            //  Don't try to handle errors, just assert noisily
+
             assert(msg->parts() >= 4);
 
-            assert(msg->pop_front().length() == 0);  // empty message
+            assert(msg->pop_front().length() == 0); // empty message
 
             ustring header = msg->pop_front();
             assert(header.compare((unsigned char *)k_mdp_client.data()) == 0);
@@ -143,7 +146,7 @@ class mdcli {
             ustring service = msg->pop_front();
             assert(service.compare((unsigned char *)service.c_str()) == 0);
 
-            return msg;  //  Success
+            return msg; // Success
         }
 
         if (s_interrupted)

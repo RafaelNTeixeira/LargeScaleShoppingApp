@@ -23,7 +23,7 @@ json serializeGSet(const GSet<K>& gset) {
     json j;
     for (const auto& entry : gset.elements()) {
         const K& element = entry;
-        // Assuming Counter has a method to retrieve its value
+
         int count = gset.read(element);
         j[element] = count;
     }
@@ -224,6 +224,7 @@ int main() {
     while (s_interrupted == 0) {
         displayMenu();
         std::cin >> choice;
+        std::string list_url_client_input = "";
 
         switch (choice) {
             case 1: {
@@ -251,8 +252,7 @@ int main() {
             }
             case 2: {
                 std::cout << "Enter List URL to retrieve: ";
-                std::string list_url;
-                std::cin >> list_url;
+                std::cin >> list_url_client_input;
 
                 std::cout << "Get list - CLOUD MODE" << std::endl;
                 request_json["command"] = "GET_LIST";
@@ -274,19 +274,30 @@ int main() {
 
             if (choice == 1) {
                 // Submits update made to list (PUSH)
-                zmsg* msg = new zmsg(request.c_str());
+                zmsg* msg = new zmsg();
                 client.send("CREATE_LIST", msg);
             } else if (choice == 2) {
                 // Ask for a list (DEALER)
-                zmsg* msg = new zmsg(request.c_str());
+                const char* url_list_msg_parameter = list_url_client_input.c_str();
+                zmsg* msg = new zmsg(url_list_msg_parameter);
                 client.send("GET_LIST", msg);
                 delete msg;
             }
 
             zmsg* reply = client.recv();
             if (reply) {
-                std::string response(reinterpret_cast<const char*>(reply->pop_front().c_str()), reply->pop_front().size());
-                std::cout << "Response from server: " << response << std::endl;
+                std::cout << "Reply received: " <<  std::endl;
+                reply->dump();
+
+                ustring temp = reply->pop_front();
+                if (temp.empty()) {
+                    std::cerr << "Error: Received empty reply!" << std::endl;
+                    // Handle the error, return, or exit
+                } else {
+                    std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                    std::cout << "Response from server: " << response << std::endl;
+                }
+                
                 delete reply;
             } else {
                 std::cout << "No response received from the server." << std::endl;

@@ -129,7 +129,7 @@ class ShoppingList {
                 item_delta.join(items.inc(name, -items.read(name)));
                 item_delta.join(items.inc(name, quantity));
                 acquired_delta.join(items_acquired);
-                addAction(ActionType::CREATE, name, quantity);
+                // addAction(ActionType::CREATE, name, quantity);
                 res.first = true;
             } else {
                 // Can't create item that exists
@@ -142,7 +142,7 @@ class ShoppingList {
             item_delta.join(items.add(name));
             item_delta.join(items.inc(name, quantity));
             acquired_delta.join(items_acquired.add(name));
-            addAction(ActionType::CREATE, name, quantity);
+            // addAction(ActionType::CREATE, name, quantity);
             res.first = true;
         }
         res.second.first = item_delta;
@@ -164,7 +164,7 @@ class ShoppingList {
             item_delta.join(items.dec(name, items.read(name)));
             acquired_delta.join(items_acquired);
             res.first = true;
-            addAction(ActionType::REMOVE, name);
+            // addAction(ActionType::REMOVE, name);
         }
         res.second.first = item_delta;
         res.second.second = acquired_delta;
@@ -185,7 +185,7 @@ class ShoppingList {
             item_delta.join(items.inc(name, quantity));
             acquired_delta.join(items_acquired);
 
-            addAction(ActionType::INCREASE, name, quantity);
+            // addAction(ActionType::INCREASE, name, quantity);
         }
         res.second.first = item_delta;
         res.second.second = acquired_delta;
@@ -205,7 +205,7 @@ class ShoppingList {
             res.first = true;
             item_delta.join(items.dec(name, quantity));
             acquired_delta.join(items_acquired.inc(name, quantity));
-            addAction(ActionType::BUY, name, quantity);
+            // addAction(ActionType::BUY, name, quantity);
         }
         res.second.first = item_delta;
         res.second.second = acquired_delta;
