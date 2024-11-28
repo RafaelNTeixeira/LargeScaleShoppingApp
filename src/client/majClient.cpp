@@ -15,7 +15,6 @@ class mdcli {
         m_context = new zmq::context_t(1);
         // s_catch_signals ();
         connect_to_broker();
-        connect_push_socket();
         connect_sub_socket();
     }
 
@@ -43,18 +42,11 @@ class mdcli {
             s_console("I: connecting to broker at %s...", m_broker.c_str());
     }
 
-    // Initialize and connect PUSH socket
-    void connect_push_socket() {
-        m_push_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
-        m_push_socket->connect("tcp://localhost:5557");
-        std::cout << "Connected to broker pull socket" << std::endl;
-    }
-
     // Initialize and connect SUB socket
     void connect_sub_socket() {
         m_sub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
         m_sub_socket->connect("tcp://localhost:5558");
-        m_sub_socket->set(zmq::sockopt::subscribe, "");  // Subscribe to all updates with an empty filter
+        m_sub_socket->set(zmq::sockopt::subscribe, "url_list");  // Subscribe to all updates with an empty filter
         std::cout << "Connected to broker pub socket" << std::endl;
     }
 

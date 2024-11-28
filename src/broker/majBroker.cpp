@@ -48,7 +48,6 @@ public:
             m_context = new zmq::context_t(1);
             m_client = new zmq::socket_t(*m_context, ZMQ_ROUTER);
             m_worker = new zmq::socket_t(*m_context, ZMQ_ROUTER);
-            m_pull_socket = new zmq::socket_t(*m_context, ZMQ_PULL);
             m_xpub_socket = new zmq::socket_t(*m_context, ZMQ_XPUB);
             m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_XSUB);
     }
@@ -70,8 +69,8 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Bind broker to endpoints, can call this multiple times
-   //  We use a single router socket for both clients and workers.
-   void bind (std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string pullEndpoint, std::string xpubEndpoint) {
+   //  We use two router sockets, one for clients and another for workers.
+   void bind (std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint) {
         m_routerWorkerEndpoint = routerWorkerEndpoint;
         m_worker->bind(m_routerWorkerEndpoint.c_str());
         s_console ("I: MDP WORKER ROUTER broker/0.1.1 is active at %s", m_routerWorkerEndpoint.c_str());
@@ -79,10 +78,6 @@ public:
         m_routerClientEndpoint = routerClientEndpoint;
         m_client->bind(m_routerClientEndpoint.c_str());
         s_console ("I: MDP CLIENT ROUTER broker/0.1.1 is active at %s", m_routerClientEndpoint.c_str());
-
-        m_pullEndpoint = pullEndpoint;
-        m_pull_socket->bind(m_pullEndpoint.c_str());
-        s_console ("I: MDP PULL broker/0.1.1 is active at %s", m_pullEndpoint.c_str());
 
         m_xpubEndpoint = xpubEndpoint;
         m_xpub_socket->bind(m_xpubEndpoint.c_str());
@@ -92,7 +87,7 @@ public:
         // m_xsub_socket->bind(m_xsubEndpoint.c_str());
         // s_console ("I: MDP XSUB broker/0.1.1 is active at %s", m_xsubEndpoint.c_str());
    }
-	
+
 private:
     //  ---------------------------------------------------------------------
     //  Delete any idle workers that haven't pinged us in a while.
@@ -387,32 +382,16 @@ void start_brokering() {
     int64_t heartbeat_at = now + n_heartbeat_interval;
     while (!s_interrupted) {
         zmq::pollitem_t items [] = {
-            { *m_pull_socket, 0, ZMQ_POLLIN, 0},
             { *m_client, 0, ZMQ_POLLIN, 0},
             { *m_worker, 0, ZMQ_POLLIN, 0},
             { *m_xpub_socket, 0, ZMQ_POLLIN, 0} };
 
         int64_t timeout = heartbeat_at - now;
         if (timeout < 0) timeout = 0;
-        zmq::poll (items, 4, std::chrono::milliseconds(timeout));
+        zmq::poll (items, 3, std::chrono::milliseconds(timeout));
 
-        // Process client list updates
-        if (items [0].revents & ZMQ_POLLIN) {
-            std::cout << "Entered process client list updates" << std::endl;
-            zmsg *msg = new zmsg(*m_pull_socket);
-
-            if (m_verbose) {
-                s_console ("I: received message:");
-                msg->dump ();
-            }
-
-            // IN PROGRESS. NEED A WAY TO GET CLIENT ID THROUGH A PUSH SOCKET SO THAT WE CAN QUEUE A MESSAGE IN THE RIGHT FORMAT
-            // DOESN'T RECEIVE SENDER
-            std::string sender = (char*)msg->pop_front ().c_str();
-            std::cout << "SENDER: " << sender << std::endl;
-        }
         // Process client list requests
-        if (items [1].revents & ZMQ_POLLIN) {
+        if (items [0].revents & ZMQ_POLLIN) {
             std::cout << "Entered process client list requests" << std::endl;
             zmsg *msg = new zmsg(*m_client);
             if (m_verbose) {
@@ -442,7 +421,7 @@ void start_brokering() {
             }
         }
         // Process workers tasks requests
-        if (items [2].revents & ZMQ_POLLIN) {
+        if (items [1].revents & ZMQ_POLLIN) {
             std::cout << "Entered process workers tasks requests" << std::endl;
             zmsg *msg = new zmsg(*m_worker);
             if (m_verbose) {
@@ -472,19 +451,20 @@ void start_brokering() {
             }
         }
         // Publish to clients list updates
-        //   if (items [2].revents & ZMQ_POLLIN) {
-        //       std::cout << "Entered publish to clients list updates" << std::endl;
-        //       zmsg *msg = new zmsg(*m_xpub_socket);
-        //       if (m_verbose) {
-        //           s_console ("I: received message:");
-        //           msg->dump ();
-        //       }
-        //       std::string sender = (char*)msg->pop_front ().c_str();
-        //       msg->pop_front (); //empty message
-        //       std::string header = (char*)msg->pop_front ().c_str();
+        // if (items [2].revents & ZMQ_POLLIN) {
+        //     std::cout << "Entered publish to clients list updates" << std::endl;
+        //     zmsg *msg = new zmsg(*m_xpub_socket);
+        //     if (m_verbose) {
+        //         s_console ("I: received message:");
+        //         msg->dump ();
+        //     }
+        //     std::string sender = (char*)msg->pop_front ().c_str();
+        //     msg->pop_front (); //empty message
+        //     std::string header = (char*)msg->pop_front ().c_str();
 
-        //       std::cout << "HEADER: " << header << std::endl;
-        //   }
+        //     std::cout << "HEADER: " << header << std::endl;
+        // }
+
         //  Disconnect and delete any expired workers
         //  Send heartbeats to idle workers if needed
         now = s_clock();
@@ -504,7 +484,6 @@ private:
     zmq::context_t * m_context;                  //  0MQ context
     zmq::socket_t * m_client;                    //  Socket for clients list requests 
     zmq::socket_t * m_worker;                    //  Socket for workers tasks request
-    zmq::socket_t * m_pull_socket;               //  Socket for client list updates
     zmq::socket_t * m_xpub_socket;               //  Socket for broker to publish list updates to clients
     zmq::socket_t * m_xsub_socket;               //  Socket for broker to subscribe to list updates made by workers
     const int m_verbose;                         //  Print activity to stdout
