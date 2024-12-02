@@ -27,6 +27,16 @@ class mdcli {
         delete m_context;
     }
 
+    static std::string generateUUID() {
+        uuid_t uuid;
+        uuid_generate_random(uuid);
+
+        char uuid_str[37];
+        uuid_unparse(uuid, uuid_str);
+
+        return std::string(uuid_str);
+    }
+
     //  ---------------------------------------------------------------------
     //  Connect or reconnect to broker
     void connect_to_broker() {
@@ -34,9 +44,10 @@ class mdcli {
             delete m_client;
         }
         m_client = new zmq::socket_t(*m_context, ZMQ_DEALER);
-        int linger = 0;
+        int linger = 0; // Discard unsent messages
         m_client->set(zmq::sockopt::linger, linger);
-        s_set_id(*m_client);
+        std::string client_id = generateUUID();
+        m_client->set(zmq::sockopt::routing_id, client_id);
         m_client->connect(m_broker.c_str());
         if (m_verbose)
             s_console("I: connecting to broker at %s...", m_broker.c_str());

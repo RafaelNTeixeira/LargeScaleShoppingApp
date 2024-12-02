@@ -30,16 +30,6 @@ json serializeGSet(const GSet<K>& gset) {
     return j;
 }
 
-std::string generateUUID() {
-    uuid_t uuid;
-    uuid_generate_random(uuid);
-
-    char uuid_str[37];
-    uuid_unparse(uuid, uuid_str);
-
-    return std::string(uuid_str);
-}
-
 bool isProxyAvailable(zmq::socket_t& socket) {
     try {
         int timeout = 1000;  // 1 second
@@ -229,7 +219,7 @@ int main() {
         switch (choice) {
             case 1: {
                 std::string base_url = "https://myshoppinglistapp.com/list/";
-                std::string list_id = generateUUID();
+                std::string list_id = mdcli::generateUUID();
                 std::string full_url = base_url + list_id;
 
                 std::cout << "Give a name to your list: ";
