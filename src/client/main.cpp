@@ -301,19 +301,6 @@ int main() {
                 std::cout << "List update notification: " << sub_update << std::endl;
             }
         }
-
-        // std::string request = request_json.dump();;
-        // std::cout << request << std::endl;
-
-        // zmq::message_t msg(request.size());
-        // memcpy(msg.data(), request.c_str(), request.size());
-        // socket.send(msg, zmq::send_flags::none);
-
-        // zmq::message_t reply;
-        // socket.recv(reply, zmq::recv_flags::none);
-
-        // std::string response(static_cast<char*>(reply.data()), reply.size());
-        // std::cout << "Response from server: " << response << std::endl;
     }
 
     return 0;

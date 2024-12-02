@@ -44,7 +44,7 @@ class mdcli {
             delete m_client;
         }
         m_client = new zmq::socket_t(*m_context, ZMQ_DEALER);
-        int linger = 0; // Discard unsent messages
+        int linger = 0; // Discard unsent messages immediately
         m_client->set(zmq::sockopt::linger, linger);
         std::string client_id = generateUUID();
         m_client->set(zmq::sockopt::routing_id, client_id);
@@ -56,27 +56,56 @@ class mdcli {
     // Initialize and connect SUB socket
     void connect_sub_socket() {
         m_sub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
-        m_sub_socket->connect("tcp://localhost:5558");
-        m_sub_socket->set(zmq::sockopt::subscribe, "url_list");  // Subscribe to all updates with an empty filter
+        m_sub_socket->connect("tcp://localhost:5557");
+
+        // SUBSCRIBING TO ALL CHANGES MADE TO THE LISTS THAT A CLIENT HAS ACCESS TO
+        // for (client_url : client_url_list) {
+        //     sub_socket->set(zmq::sockopt::subscribe, client_url);
+        // }
+
+        m_sub_socket->set(zmq::sockopt::subscribe, "qwer"); // Subscribe to all updates with an empty filter
         std::cout << "Connected to broker pub socket" << std::endl;
     }
 
-    // Send list update via PUSH socket
-    void send_update(const std::string &update) {
-        zmq::message_t msg(update.size());
-        memcpy(msg.data(), update.c_str(), update.size());
-        m_push_socket->send(msg, zmq::send_flags::none);
-        std::cout << "Sent request through push socket" << std::endl;
-    }
-
     // Receive update notification via SUB socket
-    std::string receive_update() {
-        zmq::message_t sub_msg;
-        if (m_sub_socket->recv(sub_msg, zmq::recv_flags::dontwait)) {
-            std::cout << "Received active update through push socket" << sub_msg << std::endl;
-            return std::string(static_cast<char *>(sub_msg.data()), sub_msg.size());
+    std::vector<std::string> receive_updates() {
+        zmq::message_t message;
+        std::vector<std::string> results;
+
+        // Loop to process all available messages
+        while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
+            // Initialize a new zmsg for each complete message
+            zmsg* msg = new zmsg();
+            msg->push_front(static_cast<const char*>(message.data())); // Add the first part
+
+            // Continue receiving other parts if multipart
+            while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
+                msg->push_front(static_cast<const char*>(message.data())); // Add each subsequent part
+            }
+
+            // Process the zmsg
+            if (msg->parts() > 0) {
+                std::cout << "Received active update through SUB socket:" << std::endl;
+                msg->dump();
+
+                std::string url_list = std::string(reinterpret_cast<const char*>(msg->pop_front().c_str()));
+                std::cout << "url_list: " << url_list << std::endl;
+
+                std::string shopping_list;
+
+                if (msg->parts() > 0) {
+                    shopping_list = std::string(reinterpret_cast<const char*>(msg->pop_front().c_str())); // Extract the shopping list
+                    std::cout << "Shopping list: " << shopping_list << std::endl;
+                    results.push_back(shopping_list); // Add the shopping list to results
+                } else {
+                    std::cerr << "Expected a shopping list part, but none was found!" << std::endl;
+                }
+            }
+
+            delete msg;
         }
-        return "";
+
+        return results;
     }
 
     //  ---------------------------------------------------------------------

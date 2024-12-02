@@ -13,7 +13,7 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string service, int verbose): m_broker(broker), m_service(service),m_verbose(verbose) {
+    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         s_catch_signals ();
@@ -24,6 +24,7 @@ public:
     //  Destructor
     virtual ~mdwrk () {
         delete m_worker;
+        delete m_worker_pub;
         delete m_context;
     }
 
@@ -61,6 +62,28 @@ public:
     }
 
     //  ---------------------------------------------------------------------
+    // Publish message to broker XSUB
+    //  If no _msg is provided, creates one internally
+    void publish_to_broker(std::string url_list, std::string shopping_list, zmsg *_msg) {
+        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+
+        // Frame 0: Topic (url of updated list)
+        // Frame 1: Updated shopping list
+
+        msg->push_front (shopping_list.c_str());
+        msg->push_front (url_list.c_str());
+
+        if (m_verbose) {
+            s_console ("I: sending to broker topic", url_list);
+            msg->dump ();
+        }
+        std::cout << "Publish to broker: " << std::endl;
+        msg->dump();
+        msg->send (*m_worker_pub);
+        delete msg;
+    }
+
+    //  ---------------------------------------------------------------------
     //  Connect or reconnect to broker
     void connect_to_broker () {
         if (m_worker) {
@@ -71,8 +94,12 @@ public:
         m_worker->set(zmq::sockopt::linger, linger);
         s_set_id(*m_worker);
         m_worker->connect (m_broker.c_str());
-        if (m_verbose)
-            s_console ("I: connecting to broker at %s...", m_broker.c_str());
+
+        m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
+        m_worker_pub->bind(m_worker_pub_bind.c_str());
+
+        s_console("I: connecting DEALER to broker at %s...", m_broker.c_str());
+        s_console("I: binding PUB at %s...", m_worker_pub_bind.c_str());
 
         // Register service with broker
         std::cout << "Sent READY to broker" << std::endl;
@@ -157,6 +184,10 @@ public:
                     ustring url_list = msg->pop_front();
                     std::string url_list_str = (char*) url_list.c_str();
                     std::cout << "url_list received: " << url_list_str << std::endl;
+
+                    std::string shopping_list = "[MOCK] shopping list items: tomato - 1; potato - 2";
+                    publish_to_broker(url_list_str, shopping_list, NULL);
+
                     return new zmsg("reply");     //  We have a request to process
                 }
                 else if (command.compare (k_mdpw_heartbeat.data()) == 0) {
@@ -194,9 +225,11 @@ public:
 private:
     static constexpr uint32_t n_heartbeat_liveness = 3; // 3-5 is reasonable
     const std::string m_broker;
+    const std::string m_worker_pub_bind;
     const std::string m_service;
     zmq::context_t *m_context;
-    zmq::socket_t  *m_worker{};  //  Socket to broker
+    zmq::socket_t *m_worker{};  //  Socket to broker
+    zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
     const int m_verbose;         //  Print activity to stdout
 
     // Heartbeat management

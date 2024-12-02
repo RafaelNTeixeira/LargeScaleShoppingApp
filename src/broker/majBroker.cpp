@@ -49,7 +49,7 @@ public:
             m_client = new zmq::socket_t(*m_context, ZMQ_ROUTER);
             m_worker = new zmq::socket_t(*m_context, ZMQ_ROUTER);
             m_xpub_socket = new zmq::socket_t(*m_context, ZMQ_XPUB);
-            m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_XSUB);
+            m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
     }
 
     //  ---------------------------------------------------------------------
@@ -70,7 +70,7 @@ public:
    //  ---------------------------------------------------------------------
    //  Bind broker to endpoints, can call this multiple times
    //  We use two router sockets, one for clients and another for workers.
-   void bind (std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint) {
+   void bind (std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint, std::string xsubEndpoint) {
         m_routerWorkerEndpoint = routerWorkerEndpoint;
         m_worker->bind(m_routerWorkerEndpoint.c_str());
         s_console ("I: MDP WORKER ROUTER broker/0.1.1 is active at %s", m_routerWorkerEndpoint.c_str());
@@ -83,9 +83,18 @@ public:
         m_xpub_socket->bind(m_xpubEndpoint.c_str());
         s_console ("I: MDP XPUB broker/0.1.1 is active at %s", m_xpubEndpoint.c_str());
 
-        // m_xsubEndpoint = xsubEndpoint;
-        // m_xsub_socket->bind(m_xsubEndpoint.c_str());
-        // s_console ("I: MDP XSUB broker/0.1.1 is active at %s", m_xsubEndpoint.c_str());
+        m_xsubEndpoint = xsubEndpoint;
+        m_xsub_socket->connect(m_xsubEndpoint.c_str());
+        std::cout << "xsub endpoint: " << m_xsubEndpoint << std::endl;
+        
+        // SUBSCRIBING TO ALL CHANGES MADE TO THE LISTS THAT A CLIENT HAS ACCESS TO
+        // for (client_url : client_url_list) {
+        //     m_xsub_socket->set(zmq::sockopt::subscribe, client_url);
+        // }
+
+        m_xsub_socket->set(zmq::sockopt::subscribe, "qwer");
+        m_xsub_socket->set(zmq::sockopt::subscribe, "");
+        s_console ("I: MDP XSUB broker/0.1.1 is connected to PUB at %s", m_xsubEndpoint.c_str());
    }
 
 private:
@@ -384,7 +393,7 @@ void start_brokering() {
         zmq::pollitem_t items [] = {
             { *m_client, 0, ZMQ_POLLIN, 0},
             { *m_worker, 0, ZMQ_POLLIN, 0},
-            { *m_xpub_socket, 0, ZMQ_POLLIN, 0} };
+            { *m_xsub_socket, 0, ZMQ_POLLIN, 0} };
 
         int64_t timeout = heartbeat_at - now;
         if (timeout < 0) timeout = 0;
@@ -450,8 +459,21 @@ void start_brokering() {
                 pair.second->print();
             }
         }
+        // Subscribe to workers list updates
+        if (items [2].revents & ZMQ_POLLIN) {
+            std::cout << "Entered subscribe to workers list updates" << std::endl;
+            zmsg *msg = new zmsg(*m_xsub_socket);
+            if (m_verbose) {
+                s_console ("I: received message:");
+                msg->dump ();
+            }
+            std::cout << "received message from PUB worker:" << std::endl;
+            msg->dump ();
+            
+            msg->send (*m_xpub_socket);
+        }
         // Publish to clients list updates
-        // if (items [2].revents & ZMQ_POLLIN) {
+        // if (items [3].revents & ZMQ_POLLIN) {
         //     std::cout << "Entered publish to clients list updates" << std::endl;
         //     zmsg *msg = new zmsg(*m_xpub_socket);
         //     if (m_verbose) {
