@@ -296,9 +296,9 @@ int main() {
 
         // Check for list updates via SUB socket
         if (choice != 3) {
-            std::string sub_update = client.receive_update();
+            std::vector<std::string> sub_update = client.receive_updates();
             if (!sub_update.empty()) {
-                std::cout << "List update notification: " << sub_update << std::endl;
+                std::cout << "List update notification: " << sub_update[0] << std::endl;
             }
         }
     }

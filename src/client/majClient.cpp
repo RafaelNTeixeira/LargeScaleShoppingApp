@@ -6,6 +6,8 @@
 
 //  Structure of our class
 //  We access these properties only via class methods
+static constexpr uint32_t n_heartbeat_expiry =  2500;    //  msecs
+
 class mdcli {
    public:
     //  ---------------------------------------------------------------------
@@ -49,6 +51,7 @@ class mdcli {
         std::string client_id = generateUUID();
         m_client->set(zmq::sockopt::routing_id, client_id);
         m_client->connect(m_broker.c_str());
+        m_heartbeat_at = s_clock () + m_heartbeat;
         if (m_verbose)
             s_console("I: connecting to broker at %s...", m_broker.c_str());
     }
@@ -115,6 +118,12 @@ class mdcli {
     }
 
     //  ---------------------------------------------------------------------
+    //  Set heartbeat delay
+    void set_heartbeat(int heartbeat) {
+        m_heartbeat = heartbeat;
+    }
+
+    //  ---------------------------------------------------------------------
     //  Send request to broker
     //  Takes ownership of request message and destroys it when sent.
     int send(std::string service, zmsg *&request_p) {
@@ -173,10 +182,26 @@ class mdcli {
             assert(msg->pop_front().length() == 0); // empty message
 
             ustring header = msg->pop_front();
-            assert(header.compare((unsigned char *)k_mdp_client.data()) == 0);
+            if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
+                ustring service = msg->pop_front();
+                assert(service.compare((unsigned char *)service.c_str()) == 0);
+            } else if (header.compare((unsigned char *) k_mdpc_heartbeat.data()) == 0) {
+                if (s_clock () >= m_heartbeat_at) {
+                    cloud_mode = true;
+                    std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                    zmsg* message = new zmsg();    
+                    message->push_front(k_mdpc_heartbeat.data());
+                    message->push_front("");
+                    message->send (*m_client);
+                    m_heartbeat_at += m_heartbeat;
+                    std::cout << "Sent HEARTBEAT to Broker" << std::endl;
+                } else if(s_clock() >= n_heartbeat_expiry + m_heartbeat_at) {
+                    cloud_mode = false;
+                    std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                }
+            }
 
-            ustring service = msg->pop_front();
-            assert(service.compare((unsigned char *)service.c_str()) == 0);
+            
 
             return msg; // Success
         }
@@ -195,8 +220,11 @@ class mdcli {
     zmq::socket_t *m_client{};  //  Socket to client
     zmq::socket_t *m_push_socket{};
     zmq::socket_t *m_sub_socket{};
-    const int m_verbose;  //  Print activity to stdout
-    int m_timeout{2500};  //  Request timeout
+    const int m_verbose;        //  Print activity to stdout
+    int64_t m_heartbeat_at;     //  When to send HEARTBEAT
+    int m_timeout{2500};        //  Request timeout
+    int m_heartbeat{2500};      //  Heartbeat delay, msecs
+    bool cloud_mode = false; 
 };
 
 #endif

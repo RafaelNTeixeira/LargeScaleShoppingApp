@@ -415,6 +415,17 @@ void start_brokering() {
             std::cout << "HEADER: " << header << std::endl;
 
             if (header.compare(k_mdp_client.data()) == 0) {
+                if(header.compare(k_mdpc_heartbeat.data()) == 0) {
+                    std::cout << "Received HEARTBEAT from Client" << std::endl;
+                    zmsg* message = new zmsg();
+                    if(!m_waiting.empty()){
+                        message->push_front(k_mdpc_heartbeat.data());
+                        message->push_front("");
+                        message->send (*m_client);
+                        std::cout << "Sent HEARTBEAT to Client" << std::endl;
+                    }
+                    delete message;
+                }
                 client_process (sender, msg);
             }
             else {

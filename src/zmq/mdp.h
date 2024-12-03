@@ -9,6 +9,7 @@
 
 //  This is the version of MDP/Client we implement
 static constexpr std::string_view k_mdp_client= "MDPC01";
+static constexpr std::string_view k_mdpc_heartbeat="\006";
 
 //  This is the version of MDP/Worker we implement
 static constexpr std::string_view k_mdpw_worker= "MDPW01";
