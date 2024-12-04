@@ -509,7 +509,10 @@ void start_brokering() {
                     delete message;
                 }
                 heartbeat_at_client += n_heartbeat_interval;
+            } else {
+                std::cout << "No worker Wainting!" << std::endl;
             }
+            
             now_client = s_clock();
         }
     }

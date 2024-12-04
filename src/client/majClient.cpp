@@ -191,7 +191,7 @@ class mdcli {
                     std::cout << "Received HEARTBEAT from Broker" << std::endl;
                     cloud_mode = true;
                 } else {
-                    std::cout << "NO HEARTBEAT out of Cloud_Mode" << std::endl;
+                    std::cout << "NO HEARTBEAT. Off Cloud_Mode" << std::endl;
                     cloud_mode = false;
                 }
             }  
@@ -201,11 +201,8 @@ class mdcli {
                 message->push_front(k_mdpc_heartbeat.data());
                 message->push_front("");
                 message->send (*m_client);
+                std::cout << "Sending HEARTBEAT to Broker" << std::endl;
                 m_heartbeat_at += m_heartbeat;
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                std::cout << "Sent HEARTBEAT to Broker" << std::endl;
-            } else {
-                cloud_mode = false;
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
             }
 
