@@ -388,7 +388,10 @@ public:
 // Get and process messages forever or until interrupted
 void start_brokering() {
     int64_t now = s_clock();
+    int64_t now_client = s_clock();
     int64_t heartbeat_at = now + n_heartbeat_interval;
+    int64_t heartbeat_at_client = now_client + n_heartbeat_interval;
+
     while (!s_interrupted) {
         zmq::pollitem_t items [] = {
             { *m_client, 0, ZMQ_POLLIN, 0},
@@ -415,18 +418,9 @@ void start_brokering() {
             std::cout << "HEADER: " << header << std::endl;
 
             if (header.compare(k_mdp_client.data()) == 0) {
-                if(header.compare(k_mdpc_heartbeat.data()) == 0) {
-                    std::cout << "Received HEARTBEAT from Client" << std::endl;
-                    zmsg* message = new zmsg();
-                    if(!m_waiting.empty()){
-                        message->push_front(k_mdpc_heartbeat.data());
-                        message->push_front("");
-                        message->send (*m_client);
-                        std::cout << "Sent HEARTBEAT to Client" << std::endl;
-                    }
-                    delete message;
-                }
                 client_process (sender, msg);
+            } else if(header.compare(k_mdpc_heartbeat.data()) == 0) {
+                std::cout << "Header HEARTBEAT" << std::endl;
             }
             else {
                 s_console ("E: invalid message:");
@@ -509,6 +503,21 @@ void start_brokering() {
             }
             heartbeat_at += n_heartbeat_interval;
             now = s_clock();
+        }
+
+        now_client = s_clock();
+        if (now_client >= heartbeat_at_client) {
+            std::cout << "Received HEARTBEAT from Client" << std::endl;
+            zmsg* message = new zmsg();
+            if(!m_waiting.empty()){
+                message->push_front(k_mdpc_heartbeat.data());
+                message->push_front("");
+                message->send (*m_client);
+                std::cout << "Sent HEARTBEAT to Client" << std::endl;
+            }
+            delete message;
+            heartbeat_at_client += n_heartbeat_interval;
+            now_client = s_clock();
         }
     }
 }
