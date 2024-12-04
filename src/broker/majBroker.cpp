@@ -508,8 +508,8 @@ void start_brokering() {
                     message->send(*m_client);
                     delete message;
                 }
+                heartbeat_at_client += n_heartbeat_interval;
             }
-            heartbeat_at_client += n_heartbeat_interval;
             now_client = s_clock();
         }
     }

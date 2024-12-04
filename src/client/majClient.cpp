@@ -190,6 +190,9 @@ class mdcli {
                 if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
                     std::cout << "Received HEARTBEAT from Broker" << std::endl;
                     cloud_mode = true;
+                } else {
+                    std::cout << "NO HEARTBEAT out of Cloud_Mode" << std::endl;
+                    cloud_mode = false;
                 }
             }  
 
