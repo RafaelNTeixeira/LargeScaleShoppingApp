@@ -493,7 +493,6 @@ void start_brokering() {
 
         now_client = s_clock();
         if (now_client >= heartbeat_at_client) {
-            zmsg* message = new zmsg();
             if (!m_waiting.empty()){
                 // Submit a heartbeat to each connected client
                 for (const auto& client_sender : m_client_senders) {
@@ -510,7 +509,6 @@ void start_brokering() {
                     delete message;
                 }
             }
-            delete message;
             heartbeat_at_client += n_heartbeat_interval;
             now_client = s_clock();
         }
