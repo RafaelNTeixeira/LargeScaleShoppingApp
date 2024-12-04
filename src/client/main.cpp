@@ -189,11 +189,15 @@ ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
 //     }
 // }
 
+// Function receive shopping list updates from the SUB socket
 void listenForUpdates(mdcli& client) {
     while (true) {
         std::vector<std::string> sub_update = client.receive_updates();
         if (!sub_update.empty()) {
-            std::cout << "List update notification: " << sub_update[0] << std::endl;
+            std::cout << "List update notification received:" << std::endl;
+            for (const auto& update : sub_update) {
+                std::cout << " - " << update << std::endl;
+            }
         }
     }
 }
@@ -213,12 +217,7 @@ int main() {
 
     std::thread update_listener(listenForUpdates, std::ref(client));
     update_listener.detach(); // Ensures the thread runs independently
-2
 
-    // Start a background thread to check proxy connection
-    // std::thread connection_checker(checkProxyConnection, std::ref(socket));
-
-    // bool connected_to_proxy = true;
     json request_json;
     int choice;
 
