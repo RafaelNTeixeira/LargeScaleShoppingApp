@@ -6,6 +6,11 @@
 
 using json = nlohmann::json;
 
+struct Response {
+    std::string reply;
+    std::string shopping_list;
+};
+
 json concatenateResponses(const json& response_json1, const json& response_json2) {
     json response_json;
 
@@ -24,30 +29,20 @@ json concatenateResponses(const json& response_json1, const json& response_json2
     return response_json;
 }
 
-json handleRequest(json& request) {
-    json response_json;
+Response handleRequest(std::string request) {
+    Response res;
 
-    if (!request.contains("command")) {
-        response_json["status"] = "error";
-        response_json["message"] = "Missing 'command' in request.";
-        return response_json;
-    }
-
-    std::string command = request["command"];
-
-    if (command == "CREATE_LIST") {
-        
-        response_json["status"] = "success";
-        response_json["message"] = "List created successfully.";
+    if (request == "CREATE_LIST") {
+        res.shopping_list = "[MOCK - CREATE_LIST] shopping list items: tomato - 1; potato - 2";
+        res.reply = "create_list";
     } 
-    else if (command == "GET_LIST") {
-        response_json["status"] = "error";
-        response_json["message"] = "Missing 'list_url' for GET_LIST request.";
+    else if (request == "GET_LIST") {
+        res.shopping_list = "[MOCK - GET_LIST] shopping list items: tomato - 1; potato - 2";
+        res.reply = "get_list";
     } 
     else {
-        response_json["status"] = "error";
-        response_json["message"] = "Unknown Request";
+       res.reply = "unknown request";
     }
 
-    return response_json;
+    return res;
 }

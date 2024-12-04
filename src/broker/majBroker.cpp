@@ -92,7 +92,6 @@ public:
         //     m_xsub_socket->set(zmq::sockopt::subscribe, client_url);
         // }
 
-        m_xsub_socket->set(zmq::sockopt::subscribe, "qwer");
         m_xsub_socket->set(zmq::sockopt::subscribe, "");
         s_console ("I: MDP XSUB broker/0.1.1 is connected to PUB at %s", m_xsubEndpoint.c_str());
    }
@@ -506,7 +505,7 @@ void start_brokering() {
                     
                     std::cout << "Sending HEARTBEAT to Client: " << client_sender << std::endl;
                     message->dump();
-                    message->send(*m_client);
+                    //message->send(*m_client);
                     delete message;
                 }
             }
