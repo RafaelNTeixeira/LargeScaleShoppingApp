@@ -156,7 +156,6 @@ public:
                 }
                 m_liveness = n_heartbeat_liveness;
 
-                // Don't try to handle errors, just assert noisily
                 assert (msg->parts () >= 3);
 
                 ustring empty = msg->pop_front ();
@@ -176,8 +175,6 @@ public:
                 std::string command =(char*) msg->pop_front ().c_str();
                 std::cout << "command:" << command << std::endl;
                 if (command.compare (k_mdpw_request.data()) == 0) {
-                    // We should pop and save as many addresses as there are
-                    // up to a null part, but for now, just save one...
                     std::cout << "Reply to:" << std::endl;
                     msg->dump();
                     m_reply_to = msg->unwrap ();

@@ -66,7 +66,7 @@ class mdcli {
         //     sub_socket->set(zmq::sockopt::subscribe, client_url);
         // }
 
-        m_sub_socket->set(zmq::sockopt::subscribe, "qwer"); // Subscribe to all updates with an empty filter
+        m_sub_socket->set(zmq::sockopt::subscribe, "qwer"); // Subscribe to a url_list. qwer is TEMP
         std::cout << "Connected to broker pub socket" << std::endl;
     }
 

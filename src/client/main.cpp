@@ -1,13 +1,11 @@
 #include <sqlite3.h>
 #include <uuid/uuid.h>
-
 #include <atomic>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 #include <zmq.hpp>
-
 #include "../crdt/shopping_list.h"
 #include "majClient.cpp"
 #include "ui.cpp"
@@ -191,6 +189,15 @@ ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
 //     }
 // }
 
+void listenForUpdates(mdcli& client) {
+    while (true) {
+        std::vector<std::string> sub_update = client.receive_updates();
+        if (!sub_update.empty()) {
+            std::cout << "List update notification: " << sub_update[0] << std::endl;
+        }
+    }
+}
+
 int main() {
     sqlite3* db = initializeDatabase();
 
@@ -204,6 +211,10 @@ int main() {
 
     mdcli client("tcp://localhost:5556", 1);
 
+    std::thread update_listener(listenForUpdates, std::ref(client));
+    update_listener.detach(); // Ensures the thread runs independently
+2
+
     // Start a background thread to check proxy connection
     // std::thread connection_checker(checkProxyConnection, std::ref(socket));
 
@@ -213,8 +224,14 @@ int main() {
 
     while (s_interrupted == 0) {
         displayMenu();
-        std::cin >> choice;
+        std::cout << "Enter choice: ";
         std::string list_url_client_input = "";
+        
+        while (!(std::cin >> choice)) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input. Please enter a valid choice: ";
+        }
 
         switch (choice) {
             case 1: {
@@ -233,11 +250,6 @@ int main() {
                 // json shoppingListJson = serializeGSet(shoppingList.getItems());
 
                 std::cout << "Create list - CLOUD MODE" << std::endl;
-                request_json["command"] = "CREATE_LIST";
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};
-
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
                 break;
             }
             case 2: {
@@ -245,7 +257,6 @@ int main() {
                 std::cin >> list_url_client_input;
 
                 std::cout << "Get list - CLOUD MODE" << std::endl;
-                request_json["command"] = "GET_LIST";
                 break;
             }
             case 3: {
@@ -260,8 +271,6 @@ int main() {
         }
 
         if (choice == 1 || choice == 2) {
-            std::string request = request_json.dump();
-
             if (choice == 1) {
                 // Submits update made to list (PUSH)
                 zmsg* msg = new zmsg();
@@ -282,7 +291,6 @@ int main() {
                 ustring temp = reply->pop_front();
                 if (temp.empty()) {
                     std::cerr << "Error: Received empty reply!" << std::endl;
-                    // Handle the error, return, or exit
                 } else {
                     std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
                     std::cout << "Response from server: " << response << std::endl;
@@ -291,14 +299,6 @@ int main() {
                 delete reply;
             } else {
                 std::cout << "No response received from the server." << std::endl;
-            }
-        }
-
-        // Check for list updates via SUB socket
-        if (choice != 3) {
-            std::vector<std::string> sub_update = client.receive_updates();
-            if (!sub_update.empty()) {
-                std::cout << "List update notification: " << sub_update[0] << std::endl;
             }
         }
     }
