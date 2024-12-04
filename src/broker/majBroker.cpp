@@ -419,9 +419,8 @@ void start_brokering() {
 
             if (header.compare(k_mdp_client.data()) == 0) {
                 client_process (sender, msg);
-            } else if(header.compare(k_mdpc_heartbeat.data()) == 0) {
-                std::cout << "Header HEARTBEAT" << std::endl;
-            }
+                m_client_senders.insert(sender);
+            } 
             else {
                 s_console ("E: invalid message:");
                 msg->dump ();
@@ -477,20 +476,7 @@ void start_brokering() {
             
             msg->send (*m_xpub_socket);
         }
-        // Publish to clients list updates
-        // if (items [3].revents & ZMQ_POLLIN) {
-        //     std::cout << "Entered publish to clients list updates" << std::endl;
-        //     zmsg *msg = new zmsg(*m_xpub_socket);
-        //     if (m_verbose) {
-        //         s_console ("I: received message:");
-        //         msg->dump ();
-        //     }
-        //     std::string sender = (char*)msg->pop_front ().c_str();
-        //     msg->pop_front (); //empty message
-        //     std::string header = (char*)msg->pop_front ().c_str();
 
-        //     std::cout << "HEADER: " << header << std::endl;
-        // }
 
         //  Disconnect and delete any expired workers
         //  Send heartbeats to idle workers if needed
@@ -507,13 +493,22 @@ void start_brokering() {
 
         now_client = s_clock();
         if (now_client >= heartbeat_at_client) {
-            std::cout << "Received HEARTBEAT from Client" << std::endl;
             zmsg* message = new zmsg();
-            if(!m_waiting.empty()){
-                message->push_front(k_mdpc_heartbeat.data());
-                message->push_front("");
-                message->send (*m_client);
-                std::cout << "Sent HEARTBEAT to Client" << std::endl;
+            if (!m_waiting.empty()){
+                // Submit a heartbeat to each connected client
+                for (const auto& client_sender : m_client_senders) {
+                    zmsg* message = new zmsg();
+                    std::string heartbeat_message = "heartbeat";
+                    message->push_front(heartbeat_message.c_str());
+                    message->push_front(k_mdpc_heartbeat.data());
+                    message->push_front(k_mdp_client.data());
+                    message->wrap(client_sender.c_str(), "");
+                    
+                    std::cout << "Sending HEARTBEAT to Client: " << client_sender << std::endl;
+                    message->dump();
+                    message->send(*m_client);
+                    delete message;
+                }
             }
             delete message;
             heartbeat_at_client += n_heartbeat_interval;
@@ -537,4 +532,5 @@ private:
     std::map<std::string, service*> m_services;  //  Hash of known services
     std::map<std::string, worker*> m_workers;    //  Hash of known workers
     std::set<worker*> m_waiting;                 //  List of waiting workers
+    std::set<std::string> m_client_senders;      // List of client ids
 };

@@ -182,17 +182,18 @@ class mdcli {
             assert(msg->pop_front().length() == 0); // empty message
 
             ustring header = msg->pop_front();
+            std::cout << "HEADER: " << header.c_str() << std::endl;
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
                 ustring service = msg->pop_front();
                 assert(service.compare((unsigned char *)service.c_str()) == 0);
+                
+                if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
+                    std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                    cloud_mode = true;
+                }
             }  
-            // ele nunca entra aqui
-            if (header.compare((unsigned char *) k_mdpc_heartbeat.data()) == 0) {
-                std::cout << "Received HEARTBEAT from Broker" << std::endl;
-            }
 
             if (s_clock () >= m_heartbeat_at) {
-                cloud_mode = true;
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 zmsg* message = new zmsg();    
                 message->push_front(k_mdpc_heartbeat.data());
