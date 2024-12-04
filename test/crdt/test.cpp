@@ -5,8 +5,8 @@
 
 #include "../../src/crdt/counter.h"
 #include "../../src/crdt/join.h"
-#include "../../src/crdt/new_aworset.h"
-#include "../../src/crdt/new_shopping_list.h"
+#include "../../src/crdt/ormap.h"
+#include "../../src/crdt/shopping_list.h"
 
 class BaseCounterTest : public ::testing::Test {
    protected:
@@ -654,6 +654,40 @@ TEST_F(ShoppingListTest, GetQuantity) {
     u1.createItem("banana", 10);
     EXPECT_EQ(u1.getQuantity("banana"), 10);
     EXPECT_EQ(u1.getQuantity("apple"), 0);
+}
+
+TEST_F(ShoppingListTest, Json) {
+    u1.createItem("banana", 10);
+    u1.createItem("apple", 20);
+    ShoppingList test;
+    nlohmann::json json;
+    to_json(json, u1);
+    from_json(json, test);
+    EXPECT_EQ(u1, u1);
+    EXPECT_EQ(u1, test);
+
+    EXPECT_EQ(test.getItemsSet().size(), 2);
+    EXPECT_EQ(test.getItem("banana").second, 10);
+    EXPECT_EQ(test.getItem("apple").second, 20);
+
+    EXPECT_EQ(test.getId(), "user1");
+    EXPECT_EQ(test.getTitle(), "Shopping List");
+    EXPECT_EQ(test.getURL(), "http://example.com");
+
+    u1.createItem("orange", 30);
+    EXPECT_EQ(u1.getItems().context.vc["user1"], 3);
+    EXPECT_EQ(u1.getItems().map["banana"].core.context.vc["user1"], 3);
+    EXPECT_EQ(u1.getItems().map["apple"].core.context.vc["user1"], 3);
+    EXPECT_EQ(u1.getItems().map["orange"].core.context.vc["user1"], 3);
+
+    test.createItem("orange", 30);
+
+    EXPECT_EQ(test.getItemsSet().size(), 3);
+    EXPECT_EQ(test.getItem("orange").second, 30);
+    EXPECT_EQ(test.getItems().context.vc["user1"], 3);
+    EXPECT_EQ(test.getItems().map["banana"].core.context.vc["user1"], 3);
+    EXPECT_EQ(test.getItems().map["apple"].core.context.vc["user1"], 3);
+    EXPECT_EQ(test.getItems().map["orange"].core.context.vc["user1"], 3);
 }
 
 int main(int argc, char** argv) {

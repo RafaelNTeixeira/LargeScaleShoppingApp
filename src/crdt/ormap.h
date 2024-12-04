@@ -4,13 +4,14 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <nlohmann/json.hpp>
 #include <set>
 #include <string>
 
 #include "join.h"
 
-typedef std::pair<std::string, unsigned long> Dot;
-typedef std::map<std::string, unsigned long> VectorClock;
+typedef std::pair<std::string, long> Dot;
+typedef std::map<std::string, long> VectorClock;
 
 class DotContext {
    public:
@@ -107,6 +108,20 @@ class DotContext {
             }
         }
     }
+
+    nlohmann::json toJson() const {
+        nlohmann::json j;
+        j["vc"] = vc;
+        j["dc"] = dc;
+        return j;
+    }
+
+    void fromJson(const nlohmann::json& j) {
+        vc = j["vc"].get<VectorClock>();
+        for (const auto& d : j["dc"]) {
+            dc.insert({d[0], d[1]});
+        }
+    }
 };
 
 template <typename T>
@@ -144,25 +159,6 @@ class DotKernel {
     void join(const DotKernel<T>& o) {
         auto it = values.begin();
         auto oit = o.values.begin();
-
-        // do {
-        //     if (it != values.end() && (oit == o.values.end() || it->first < oit->first)) {
-        //         // dot only at this
-        //         if (o.context.contains(it->first))  // other knows dot, must delete here
-        //             values.erase(it++);
-        //         else  // keep it
-        //             ++it;
-        //     } else if (oit != o.values.end() && (it == values.end() || oit->first < it->first)) {
-        //         // dot only at other
-        //         if (!context.contains(oit->first))  // If I dont know, import
-        //             values.insert(*oit);
-        //         ++oit;
-        //     } else if (it != values.end() && oit != o.values.end()) {
-        //         // dot in both
-        //         ++it;
-        //         ++oit;
-        //     }
-        // } while (it != values.end() || oit != o.values.end());
 
         while (it != values.end() && oit != o.values.end()) {
             if (it->first < oit->first) {
@@ -222,6 +218,13 @@ class DotKernel {
 
     void remove() {
         values.clear();
+    }
+
+    nlohmann::json toJson() const {
+        nlohmann::json j;
+        j["values"] = values;
+        j["context"] = context.toJson();
+        return j;
     }
 };
 
@@ -292,6 +295,10 @@ class CausalCounter {
 
     void reset() {
         core.remove();
+    }
+
+    nlohmann::json toJson() const {
+        return core.toJson();
     }
 };
 
@@ -420,6 +427,17 @@ class ORMap {
         }
 
         context.join(o.context);
+    }
+
+    nlohmann::json toJson() const {
+        nlohmann::json j;
+        nlohmann::json map;
+        for (const auto& kv : this->map) {
+            map[kv.first] = kv.second.toJson();
+        }
+        j["map"] = map;
+        j["context"] = context.toJson();
+        return j;
     }
 };
 
