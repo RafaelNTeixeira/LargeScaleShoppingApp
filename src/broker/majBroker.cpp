@@ -1,5 +1,6 @@
 #include "../zmq/zmsg.hpp"
 #include "../zmq/mdp.h"
+#include "../server/consistent_hashin.cpp"
 
 #include <map>
 #include <set>
