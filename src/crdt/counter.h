@@ -9,26 +9,24 @@ template <typename V = int, typename K = std::string>
 class BaseCounter {
    private:
     std::unordered_map<K, V> m;
-    K id;
 
    public:
     BaseCounter() {}
-    BaseCounter(K id) : id(id) {}
-    BaseCounter(const BaseCounter<V, K>& o) : m(o.m), id(o.id) {}
+    BaseCounter(const BaseCounter<V, K>& o) : m(o.m) {}
 
-    BaseCounter inc(V value = {1}) {
+    BaseCounter inc(const K& replica_id, const V value = {1}) {
         BaseCounter<V, K> res;
-        m[id] += value;
-        res.m[id] = m[id];
+        m[replica_id] += value;
+        res.m[replica_id] = m[replica_id];
         return res;
     }
 
     bool operator==(const BaseCounter<V, K>& o) const { return m == o.m; }
 
-    V local() const {
-        V res = 0; 
-        if (m.count(id) != 0) {
-            res += m.at(id);
+    V local(const K& replica_id) const {
+        V res = 0;
+        if (m.count(replica_id) != 0) {
+            res += m.at(replica_id);
         }
         return res;
     }
@@ -43,6 +41,10 @@ class BaseCounter {
     void join(const BaseCounter<V, K>& o) {
         for (const auto& okv : o.m)
             m[okv.first] = std::max(okv.second, m[okv.first]);
+    }
+
+    void reset() {
+        m.clear();
     }
 
     friend std::ostream& operator<<(std::ostream& output, const BaseCounter<V, K>& o) {
@@ -61,23 +63,24 @@ class Counter {
 
    public:
     Counter() {}
-    Counter(K id) : i(id), d(id) {}
     Counter(const Counter<V, K>& o) : i(o.i), d(o.d) {}
 
-    Counter inc(V value = {1}) {
+    bool operator==(const Counter<V, K>& o) const { return i == o.i && d == o.d; }
+
+    Counter inc(const K& replica_id, V value = {1}) {
         Counter<V, K> delta;
-        delta.i = i.inc(value);
+        delta.i = i.inc(replica_id, value);
         return delta;
     }
 
-    Counter dec(V value = {1}) {
+    Counter dec(const K& replica_id, V value = {1}) {
         Counter<V, K> delta;
-        delta.d = d.inc(value);
+        delta.d = d.inc(replica_id, value);
         return delta;
     }
 
-    V local() const {
-        return i.local() - d.local();
+    V local(const K& replica_id) const {
+        return i.local(replica_id) - d.local(replica_id);
     }
 
     V read() const {
@@ -87,6 +90,11 @@ class Counter {
     void join(const Counter& o) {
         i.join(o.i);
         d.join(o.d);
+    }
+
+    void reset() {
+        i.reset();
+        d.reset();
     }
 
     friend std::ostream& operator<<(std::ostream& output, const Counter<V, K>& o) {
