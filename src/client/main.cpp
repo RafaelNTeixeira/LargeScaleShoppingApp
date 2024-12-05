@@ -16,20 +16,6 @@ using json = nlohmann::json;
 
 // std::atomic<bool> connected_to_proxy(false);
 
-using json = nlohmann::json;
-
-template <typename K>
-json serializeGSet(const GSet<K>& gset) {
-    json j;
-    for (const auto& entry : gset.elements()) {
-        const K& element = entry;
-
-        int count = gset.read(element);
-        j[element] = count;
-    }
-    return j;
-}
-
 std::string generateUUID() {
     uuid_t uuid;
     uuid_generate_random(uuid);
@@ -94,11 +80,6 @@ void saveListToLocal(sqlite3* db, ShoppingList& shoppingList) {
     std::string sql = "INSERT INTO shopping_lists (url, name) VALUES ('" + shoppingList.getURL() + "', '" + shoppingList.getTitle() + "');";
     executeSQL(db, sql.c_str());
     std::cout << "List saved to SQLite database with ID: " << shoppingList.getURL() << std::endl;
-
-    for (const auto& item : shoppingList.getHistory()) {
-        std::string item_sql = "INSERT INTO shopping_lists_items (list_url, item_name, acquired_quantity) VALUES ('" + shoppingList.getURL() + "', '" + item.target + "', " + std::to_string(item.quantity) + ");";
-        executeSQL(db, item_sql.c_str());
-    }
 }
 
 json loadListFromLocal(sqlite3* db, const std::string& list_url) {
@@ -172,8 +153,7 @@ sqlite3* initializeDatabase() {
 }
 
 // Function to collect products from the user
-ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
-    ShoppingListResponse shoppingListResponse;
+bool addProductsToList(ShoppingList& shoppingList) {
     std::string product_name;
     int quantity;
 
@@ -188,10 +168,13 @@ ShoppingListResponse addProductsToList(ShoppingList& shoppingList) {
         std::cout << "Enter quantity for " << product_name << ": ";
         std::cin >> quantity;
 
-        shoppingListResponse = shoppingList.createItem(product_name, quantity);
+        if (!shoppingList.createItem(product_name, quantity)) {
+            std::cout << "Product already exists in the list." << std::endl;
+            break;
+        }
     }
 
-    return shoppingListResponse;
+    return true;
 }
 
 // void checkProxyConnection(zmq::socket_t& socket) {
@@ -286,7 +269,7 @@ int main() {
 
             zmsg* reply = client.recv();
             if (reply) {
-                std::cout << "Reply received: " <<  std::endl;
+                std::cout << "Reply received: " << std::endl;
                 reply->dump();
 
                 ustring temp = reply->pop_front();
@@ -297,7 +280,7 @@ int main() {
                     std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
                     std::cout << "Response from server: " << response << std::endl;
                 }
-                
+
                 delete reply;
             } else {
                 std::cout << "No response received from the server." << std::endl;
