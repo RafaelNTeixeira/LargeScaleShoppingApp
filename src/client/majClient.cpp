@@ -169,11 +169,11 @@ class mdcli {
         //  If we got a reply, process it
         if (items[0].revents & ZMQ_POLLIN) {
             zmsg *msg = new zmsg(*m_client);
-            std::cout << "Client got reply:" << std::endl;
+            //std::cout << "Client got reply:" << std::endl;
             //msg->dump();
 
             if (m_verbose) {
-                s_console("I: received reply:");
+                //s_console("I: received reply:");
                 //msg->dump();
             }
 
@@ -183,12 +183,12 @@ class mdcli {
 
             ustring header = msg->pop_front();
             if (header.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
-                std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                //std::cout << "Received HEARTBEAT from Broker" << std::endl;
                 n_heartbeat_expiry = s_clock() + 2500;
                 cloud_mode = true;
             }
             
-            std::cout << "HEADER: " << header.c_str() << std::endl;
+            //std::cout << "HEADER: " << header.c_str() << std::endl;
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
                 ustring service = msg->pop_front();
                 assert(service.compare((unsigned char *)service.c_str()) == 0);
@@ -217,21 +217,23 @@ class mdcli {
             message->push_front(k_mdpc_heartbeat.data());
             message->push_front("");
             message->send (*m_client);
-            std::cout << "Sending HEARTBEAT to Broker" << std::endl;
+            //std::cout << "Sending HEARTBEAT to Broker" << std::endl;
             m_heartbeat_at += m_heartbeat;
-            std::cout << "cloud_mode: " << cloud_mode << std::endl;
+            //std::cout << "cloud_mode: " << cloud_mode << std::endl;
         }
 
         if(s_clock() >= n_heartbeat_expiry){
-            std::cout << "HEARTBEAT EXPIRED" << std::endl;
+            //std::cout << "HEARTBEAT EXPIRED" << std::endl;
             cloud_mode = false;
-            std::cout << "cloud_mode: " << cloud_mode << std::endl;
+            //std::cout << "cloud_mode: " << cloud_mode << std::endl;
         }
 
-        if (s_interrupted)
-            std::cout << "W: interrupt received, killing client..." << std::endl;
-        else if (m_verbose)
-            s_console("W: permanent error, abandoning request");
+        if (s_interrupted){
+            //std::cout << "W: interrupt received, killing client..." << std::endl;
+        } else if (m_verbose){
+            //s_console("W: permanent error, abandoning request");
+        }
+            
 
         return 0;
     }
