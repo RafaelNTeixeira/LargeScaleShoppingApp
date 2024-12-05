@@ -67,6 +67,7 @@ class mdcli {
         // }
 
         m_sub_socket->set(zmq::sockopt::subscribe, "qwer"); // Subscribe to a url_list. qwer is TEMP
+        m_sub_socket->set(zmq::sockopt::subscribe, "zxcv"); // Subscribe to a url_list. zxcv is TEMP
         std::cout << "Connected to broker pub socket" << std::endl;
     }
 
@@ -126,33 +127,30 @@ class mdcli {
     //  ---------------------------------------------------------------------
     //  Send request to broker
     //  Takes ownership of request message and destroys it when sent.
-    int send(std::string service, zmsg *&request_p) {
+    int send(std::string category, std::string service, zmsg *&request_p) {
         assert(request_p);
         zmsg *request = request_p;
 
         request->push_front(service.c_str());
+        request->push_front(category.c_str());
 
         if (m_verbose) {
             s_console("I: send request to '%s' service:", service.c_str());
             request->dump();
         }
-        if (service == "CREATE_LIST") {
-            request->send(*m_push_socket);
-            std::string endpoint = m_push_socket->get(zmq::sockopt::last_endpoint);
-            std::cout << "Sent list update through PUSH socket: " << endpoint << std::endl;
-        }
-        if (service == "GET_LIST") {
-            //  Prefix request with protocol frames
-            //  Frame 0: empty (REQ emulation)
-            //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
-            //  Frame 2: Service name (printable string)
-            request->push_front(k_mdp_client.data());
-            request->push_front("");
 
-            request->send(*m_client);
-            std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
-            std::cout << "Sent load list request through DEALER socket: " << endpoint << std::endl;
-        }
+        //  Prefix request with protocol frames
+        //  Frame 0: empty (REQ emulation)
+        //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
+        //  Frame 2: Service Category (printable string)
+        //  Frame 3: Service name (printable string)
+        request->push_front(k_mdp_client.data());
+        request->push_front("");
+
+        request->send(*m_client);
+        std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
+        std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;
+
         return 0;
     }
 

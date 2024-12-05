@@ -282,13 +282,15 @@ int main() {
         if (choice == 1 || choice == 2) {
             if (choice == 1) {
                 // Submits update made to list (PUSH)
-                zmsg* msg = new zmsg();
-                client.send("CREATE_LIST", msg);
+                std::string generated_url = "zxcv";
+                zmsg* msg = new zmsg(generated_url.c_str());
+                client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
+                delete msg;
             } else if (choice == 2) {
                 // Ask for a list (DEALER)
                 const char* url_list_msg_parameter = list_url_client_input.c_str();
                 zmsg* msg = new zmsg(url_list_msg_parameter);
-                client.send("GET_LIST", msg);
+                client.send("LIST_MANAGEMENT", "GET_LIST", msg);
                 delete msg;
             }
 

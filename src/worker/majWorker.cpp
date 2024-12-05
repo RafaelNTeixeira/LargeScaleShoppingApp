@@ -178,14 +178,20 @@ public:
                     std::cout << "Reply to:" << std::endl;
                     msg->dump();
                     m_reply_to = msg->unwrap ();
+
+                    ustring request_type = msg->pop_front();
+                    std::string request_type_str = (char*) request_type.c_str();
+                    std::cout << "request_type received: " << request_type_str << std::endl;
+
                     ustring url_list = msg->pop_front();
                     std::string url_list_str = (char*) url_list.c_str();
                     std::cout << "url_list received: " << url_list_str << std::endl;
 
-                    std::string shopping_list = "[MOCK] shopping list items: tomato - 1; potato - 2";
-                    publish_to_broker(url_list_str, shopping_list, NULL);
+                    Response res = handleRequest(request_type_str);
+                    
+                    publish_to_broker(url_list_str, res.shopping_list, NULL);
 
-                    return new zmsg("reply");     //  We have a request to process
+                    return new zmsg(res.reply.c_str());     //  We have a request to process
                 }
                 else if (command.compare (k_mdpw_heartbeat.data()) == 0) {
                     // Do nothing for heartbeats
