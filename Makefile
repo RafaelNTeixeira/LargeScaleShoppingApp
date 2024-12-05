@@ -4,7 +4,7 @@ TARGETS = database/cloud/database.db database/local/* src/client/client src/work
 all: clean database worker broker client 
 
 worker: 
-	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -lsqlite3
+	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -lsqlite3 -pthread
 
 runWorker:
 	./src/worker/worker
