@@ -533,5 +533,5 @@ private:
     std::map<std::string, service*> m_services;  //  Hash of known services
     std::map<std::string, worker*> m_workers;    //  Hash of known workers
     std::set<worker*> m_waiting;                 //  List of waiting workers
-    std::set<std::string> m_client_senders;      // List of client ids
+    std::set<std::string> m_client_senders;      //  List of client ids
 };

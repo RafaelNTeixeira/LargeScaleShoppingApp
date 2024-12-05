@@ -202,6 +202,13 @@ void listenForUpdates(mdcli& client) {
     }
 }
 
+// Function receive heartbeats from the broker
+void listenForHeartBeats(mdcli& client) {
+    while (true) {
+        zmsg* heartbeat = client.recv();
+    }
+}
+
 int main() {
     sqlite3* db = initializeDatabase();
 
@@ -217,6 +224,9 @@ int main() {
 
     std::thread update_listener(listenForUpdates, std::ref(client));
     update_listener.detach(); // Ensures the thread runs independently
+
+    std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
+    update_heartbeat.detach(); // Ensures the thread runs independently
 
     json request_json;
     int choice;

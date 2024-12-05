@@ -6,7 +6,7 @@
 
 //  Structure of our class
 //  We access these properties only via class methods
-static constexpr uint32_t n_heartbeat_expiry =  2500;    //  msecs
+//static constexpr uint32_t n_heartbeat_expiry =  2500;    //  msecs
 
 class mdcli {
    public:
@@ -170,17 +170,31 @@ class mdcli {
         if (items[0].revents & ZMQ_POLLIN) {
             zmsg *msg = new zmsg(*m_client);
             std::cout << "Client got reply:" << std::endl;
-            msg->dump();
+            //msg->dump();
 
             if (m_verbose) {
                 s_console("I: received reply:");
-                msg->dump();
+                //msg->dump();
             }
 
             assert(msg->parts() >= 4);
 
             assert(msg->pop_front().length() == 0); // empty message
 
+            ustring header = msg->pop_front();
+            if (header.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
+                std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                n_heartbeat_expiry = s_clock() + 2500;
+                cloud_mode = true;
+            }
+            
+            std::cout << "HEADER: " << header.c_str() << std::endl;
+            if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
+                ustring service = msg->pop_front();
+                assert(service.compare((unsigned char *)service.c_str()) == 0);
+            }
+
+            /*
             ustring header = msg->pop_front();
             std::cout << "HEADER: " << header.c_str() << std::endl;
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
@@ -189,24 +203,29 @@ class mdcli {
                 std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
                 if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
                     std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                    n_heartbeat_expiry = s_clock() + 2500;
                     cloud_mode = true;
-                } else {
-                    std::cout << "NO HEARTBEAT. Off Cloud_Mode" << std::endl;
-                    cloud_mode = false;
                 }
-            }  
-
-            if (s_clock () >= m_heartbeat_at) {
-                zmsg* message = new zmsg();    
-                message->push_front(k_mdpc_heartbeat.data());
-                message->push_front("");
-                message->send (*m_client);
-                std::cout << "Sending HEARTBEAT to Broker" << std::endl;
-                m_heartbeat_at += m_heartbeat;
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
             }
+            */  
 
             return msg; // Success
+        }
+
+        if (s_clock () >= m_heartbeat_at) {
+            zmsg* message = new zmsg();    
+            message->push_front(k_mdpc_heartbeat.data());
+            message->push_front("");
+            message->send (*m_client);
+            std::cout << "Sending HEARTBEAT to Broker" << std::endl;
+            m_heartbeat_at += m_heartbeat;
+            std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        }
+
+        if(s_clock() >= n_heartbeat_expiry){
+            std::cout << "HEARTBEAT EXPIRED" << std::endl;
+            cloud_mode = false;
+            std::cout << "cloud_mode: " << cloud_mode << std::endl;
         }
 
         if (s_interrupted)
@@ -227,6 +246,7 @@ class mdcli {
     int64_t m_heartbeat_at;     //  When to send HEARTBEAT
     int m_timeout{2500};        //  Request timeout
     int m_heartbeat{2500};      //  Heartbeat delay, msecs
+    int64_t n_heartbeat_expiry;
     bool cloud_mode = false; 
 };
 
