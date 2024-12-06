@@ -284,15 +284,25 @@ int main() {
             if (choice == 1) {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 std::string generated_url = "zxcv";
-                zmsg* msg = new zmsg(generated_url.c_str());
-                client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
-                delete msg;
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg(generated_url.c_str());
+                    client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
+                    delete msg;
+                }
+                else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
             } else if (choice == 2) {
                 // Ask for a list (DEALER)
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 const char* url_list_msg_parameter = list_url_client_input.c_str();
-                zmsg* msg = new zmsg(url_list_msg_parameter);
-                client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg(url_list_msg_parameter);
+                    client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                }
+                else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
             }
 
             if (cloud_mode == 1){
