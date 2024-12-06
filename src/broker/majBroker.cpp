@@ -373,13 +373,18 @@ private:
 
         std::string service_name =(char *) msg->pop_front().c_str();
         std::cout << "Service name received from client: " << service_name << std::endl;
-        service *srv = service_require (service_name);
-        // Set reply return address to client sender
-        msg->wrap (sender.c_str(), "");
-        if (service_name.length() >= 4 &&  service_name.find_first_of("mmi.") == 0) {
-            service_internal (service_name, msg);
-        } else {
-            service_dispatch (srv, msg);
+        if (service_name == "HEARTBEAT") {
+            m_client_senders.insert(sender);
+        }
+        else {
+            service *srv = service_require (service_name);
+            // Set reply return address to client sender
+            msg->wrap (sender.c_str(), "");
+            if (service_name.length() >= 4 &&  service_name.find_first_of("mmi.") == 0) {
+                service_internal (service_name, msg);
+            } else {
+                service_dispatch (srv, msg);
+            }
         }
     }
         
@@ -418,7 +423,7 @@ void start_brokering() {
 
             if (header.compare(k_mdp_client.data()) == 0) {
                 client_process (sender, msg);
-                m_client_senders.insert(sender);
+                m_client_senders.insert(sender); // FAZ SENTIDO TER ISTO, SENDO QUE O CLIENTE É INSERIDO NO HEARTBEAT?
             } 
             else {
                 s_console ("E: invalid message:");
