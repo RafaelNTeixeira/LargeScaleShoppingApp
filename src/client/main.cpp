@@ -279,37 +279,40 @@ int main() {
             }
         }
 
+        bool cloud_mode = client.get_cloud_mode();
         if (choice == 1 || choice == 2) {
             if (choice == 1) {
-                // Submits update made to list (PUSH)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 std::string generated_url = "zxcv";
                 zmsg* msg = new zmsg(generated_url.c_str());
                 client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                 delete msg;
             } else if (choice == 2) {
                 // Ask for a list (DEALER)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 const char* url_list_msg_parameter = list_url_client_input.c_str();
                 zmsg* msg = new zmsg(url_list_msg_parameter);
                 client.send("LIST_MANAGEMENT", "GET_LIST", msg);
-                delete msg;
             }
 
-            zmsg* reply = client.recv();
-            if (reply) {
-                std::cout << "Reply received: " <<  std::endl;
-                reply->dump();
+            if (cloud_mode == 1){
+                zmsg* reply = client.recv();
+                if (reply) {
+                    std::cout << "Reply received: " <<  std::endl;
+                    reply->dump();
 
-                ustring temp = reply->pop_front();
-                if (temp.empty()) {
-                    std::cerr << "Error: Received empty reply!" << std::endl;
+                    ustring temp = reply->pop_front();
+                    if (temp.empty()) {
+                        std::cerr << "Error: Received empty reply!" << std::endl;
+                    } else {
+                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                        std::cout << "Response from server: " << response << std::endl;
+                    }
+                    
+                    delete reply;
                 } else {
-                    std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-                    std::cout << "Response from server: " << response << std::endl;
+                    std::cout << "No response received from the server." << std::endl;
                 }
-                
-                delete reply;
-            } else {
-                std::cout << "No response received from the server." << std::endl;
             }
         }
     }

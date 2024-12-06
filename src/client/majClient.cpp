@@ -125,6 +125,12 @@ class mdcli {
     }
 
     //  ---------------------------------------------------------------------
+    //  Get cloud_mode
+    bool get_cloud_mode() {
+        return cloud_mode;
+    }
+
+    //  ---------------------------------------------------------------------
     //  Send request to broker
     //  Takes ownership of request message and destroys it when sent.
     int send(std::string category, std::string service, zmsg *&request_p) {
@@ -179,20 +185,19 @@ class mdcli {
 
             assert(msg->pop_front().length() == 0); // empty message
 
-            ustring header = msg->pop_front();
-            if (header.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
-                //std::cout << "Received HEARTBEAT from Broker" << std::endl;
-                n_heartbeat_expiry = s_clock() + 2500;
-                cloud_mode = true;
-            }
+            // ustring header = msg->pop_front();
+            // if (header.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
+            //     //std::cout << "Received HEARTBEAT from Broker" << std::endl;
+            //     n_heartbeat_expiry = s_clock() + 2500;
+            //     cloud_mode = true;
+            // }
             
-            //std::cout << "HEADER: " << header.c_str() << std::endl;
-            if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
-                ustring service = msg->pop_front();
-                assert(service.compare((unsigned char *)service.c_str()) == 0);
-            }
+            // //std::cout << "HEADER: " << header.c_str() << std::endl;
+            // if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
+            //     ustring service = msg->pop_front();
+            //     assert(service.compare((unsigned char *)service.c_str()) == 0);
+            // }
 
-            /*
             ustring header = msg->pop_front();
             std::cout << "HEADER: " << header.c_str() << std::endl;
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
@@ -205,7 +210,7 @@ class mdcli {
                     cloud_mode = true;
                 }
             }
-            */  
+            
 
             return msg; // Success
         }
