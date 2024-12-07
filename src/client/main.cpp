@@ -234,7 +234,8 @@ int main() {
     while (s_interrupted == 0) {
         displayMenu();
         std::cout << "Enter choice: ";
-        std::string list_url_client_input = "";
+        std::string get_list_url = "";
+        std::string update_list_list_url = "";
         std::string list_name = "";
         std::string product_name = "";
         int product_quantity = 0;
@@ -254,29 +255,30 @@ int main() {
                 std::cout << "Give a name to your list: ";
                 std::cin >> list_name;
 
-                std::cout << "Type the product you want to add: ";
-                std::cin >> product_name;
-
-                std::cout << "Insert the quantity you want to add: ";
-                std::cin >> product_quantity;
-
-                // ShoppingList shoppingList(list_id, list_name, full_url);
-
-                // ShoppingListResponse shoppingListResponse = addProductsToList(shoppingList);
-                // std::cout << shoppingList.getItems() << std::endl;
-                // json shoppingListJson = serializeGSet(shoppingList.getItems());
-
-                std::cout << "Create list - CLOUD MODE" << std::endl;
                 break;
             }
             case 2: {
                 std::cout << "Enter List URL to retrieve: ";
-                std::cin >> list_url_client_input;
+                std::cin >> get_list_url;
 
-                std::cout << "Get list - CLOUD MODE" << std::endl;
                 break;
             }
             case 3: {
+                listClientShoppingLists(); // ALTERAR PARA DAR DISPLAY ÀS SHOPPING LISTS QUE O CLIENTE TEM
+                std::cout << "Pick shopping list url: ";
+                std::cin >> update_list_list_url;
+                listShoppingListItems(update_list_list_url);
+                std::cout << "Type the product you want to add/edit: ";
+                std::cin >> product_name;
+
+                std::cout << "Insert the quantity you want to add/subtract." << std::endl;
+                std::cout << "To add, use a positive value." << std::endl;
+                std::cout << "To subtract, use a negative value." << std::endl;
+                std::cout << "Quantity: ";
+                std::cin >> product_quantity;
+                break;
+            }
+            case 0: {
                 std::cout << "Thank You for using our platform!" << std::endl;
                 s_interrupted = 1;
                 break;
@@ -288,14 +290,13 @@ int main() {
         }
 
         bool cloud_mode = client.get_cloud_mode();
-        if (choice == 1 || choice == 2) {
+        if (choice != 0) {
             if (choice == 1) {
+                // Create an empty Shopping List (DEALER)
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                std::string generated_url = "zxcv";
+                std::string generated_url = "zxcv"; // TEM QUE SE GERAR UM URL ÚNICO AQUI
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
-                    msg->push_front(std::to_string(product_quantity).c_str());
-                    msg->push_front(product_name.c_str());
                     msg->push_front(list_name.c_str());
                     msg->push_front(generated_url.c_str());
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
@@ -304,20 +305,35 @@ int main() {
                 else {
                     std::cout << "Local mode needs development" << std::endl;
                 }
-            } else if (choice == 2) {
-                // Ask for a list (DEALER)
+            } 
+            else if (choice == 2) {
+                // Ask for a Shopping List (DEALER)
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                const char* url_list_msg_parameter = list_url_client_input.c_str();
+                const char* url_list_msg_parameter = get_list_url.c_str();
                 if (cloud_mode) {
                     zmsg* msg = new zmsg(url_list_msg_parameter);
                     client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                }
+                else {
+                    std::cout << "xxxxxxxxx Server Unavailable xxxxxxxxx" << std::endl;
+                }
+            }
+            else if (choice == 3) {
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg();
+                    msg->push_front(std::to_string(product_quantity).c_str());
+                    msg->push_front(product_name.c_str());
+                    msg->push_front(update_list_list_url.c_str());
+                    client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
+                    delete msg;
                 }
                 else {
                     std::cout << "Local mode needs development" << std::endl;
                 }
             }
 
-            if (cloud_mode == 1){
+            if (cloud_mode == 1) {
                 zmsg* reply = client.recv();
                 if (reply) {
                     std::cout << "Reply received: " <<  std::endl;
