@@ -155,7 +155,7 @@ class mdcli {
 
         request->send(*m_client);
         std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
-        std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;
+        //std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;
 
         return 0;
     }
@@ -186,13 +186,13 @@ class mdcli {
             assert(msg->pop_front().length() == 0); // empty message
 
             ustring header = msg->pop_front();
-            std::cout << "HEADER: " << header.c_str() << std::endl;
+            //std::cout << "HEADER: " << header.c_str() << std::endl;
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
                 ustring service = msg->pop_front();
                 assert(service.compare((unsigned char *)service.c_str()) == 0);
                 //std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
                 if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
-                    std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                    //std::cout << "Received HEARTBEAT from Broker" << std::endl;
                     n_heartbeat_expiry = s_clock() + 2500;
                     cloud_mode = true;
                 }

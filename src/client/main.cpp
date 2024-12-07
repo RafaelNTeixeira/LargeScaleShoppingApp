@@ -235,6 +235,9 @@ int main() {
         displayMenu();
         std::cout << "Enter choice: ";
         std::string list_url_client_input = "";
+        std::string list_name = "";
+        std::string product_name = "";
+        int product_quantity = 0;
         
         while (!(std::cin >> choice)) {
             std::cin.clear();
@@ -249,8 +252,13 @@ int main() {
                 std::string full_url = base_url + list_id;
 
                 std::cout << "Give a name to your list: ";
-                std::string list_name;
                 std::cin >> list_name;
+
+                std::cout << "Type the product you want to add: ";
+                std::cin >> product_name;
+
+                std::cout << "Insert the quantity you want to add: ";
+                std::cin >> product_quantity;
 
                 // ShoppingList shoppingList(list_id, list_name, full_url);
 
@@ -285,7 +293,11 @@ int main() {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 std::string generated_url = "zxcv";
                 if (cloud_mode) {
-                    zmsg* msg = new zmsg(generated_url.c_str());
+                    zmsg* msg = new zmsg();
+                    msg->push_front(std::to_string(product_quantity).c_str());
+                    msg->push_front(product_name.c_str());
+                    msg->push_front(list_name.c_str());
+                    msg->push_front(generated_url.c_str());
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;
                 }

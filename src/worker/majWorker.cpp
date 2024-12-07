@@ -187,7 +187,7 @@ public:
                     std::string url_list_str = (char*) url_list.c_str();
                     std::cout << "url_list received: " << url_list_str << std::endl;
 
-                    Response res = handleRequest(request_type_str);
+                    Response res = handleRequest(url_list_str, request_type_str, msg);
                     
                     publish_to_broker(url_list_str, res.shopping_list, NULL);
 
