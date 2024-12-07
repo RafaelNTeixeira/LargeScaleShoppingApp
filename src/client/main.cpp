@@ -1,30 +1,16 @@
 #include <sqlite3.h>
 #include <uuid/uuid.h>
-
 #include <atomic>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 #include <zmq.hpp>
-
 #include "../crdt/shopping_list.h"
 #include "majClient.cpp"
 #include "ui.cpp"
 
 using json = nlohmann::json;
-
-// std::atomic<bool> connected_to_proxy(false);
-
-std::string generateUUID() {
-    uuid_t uuid;
-    uuid_generate_random(uuid);
-
-    char uuid_str[37];
-    uuid_unparse(uuid, uuid_str);
-
-    return std::string(uuid_str);
-}
 
 bool isProxyAvailable(zmq::socket_t& socket) {
     try {
@@ -184,6 +170,26 @@ bool addProductsToList(ShoppingList& shoppingList) {
 //     }
 // }
 
+// Function receive shopping list updates from the SUB socket
+void listenForUpdates(mdcli& client) {
+    while (true) {
+        std::vector<std::string> sub_update = client.receive_updates();
+        if (!sub_update.empty()) {
+            std::cout << "List update notification received:" << std::endl;
+            for (const auto& update : sub_update) {
+                std::cout << " - " << update << std::endl;
+            }
+        }
+    }
+}
+
+// Function receive heartbeats from the broker
+void listenForHeartBeats(mdcli& client) {
+    while (true) {
+        zmsg* heartbeat = client.recv();
+    }
+}
+
 int main() {
     sqlite3* db = initializeDatabase();
 
@@ -197,51 +203,63 @@ int main() {
 
     mdcli client("tcp://localhost:5556", 1);
 
-    // Start a background thread to check proxy connection
-    // std::thread connection_checker(checkProxyConnection, std::ref(socket));
+    std::thread update_listener(listenForUpdates, std::ref(client));
+    update_listener.detach(); // Ensures the thread runs independently
 
-    // bool connected_to_proxy = true;
+    std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
+    update_heartbeat.detach(); // Ensures the thread runs independently
+
     json request_json;
     int choice;
 
     while (s_interrupted == 0) {
         displayMenu();
-        std::cin >> choice;
-        std::string list_url_client_input = "";
+        std::cout << "Enter choice: ";
+        std::string get_list_url = "";
+        std::string update_list_list_url = "";
+        std::string list_name = "";
+        std::string product_name = "";
+        int product_quantity = 0;
+        
+        while (!(std::cin >> choice)) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input. Please enter a valid choice: ";
+        }
 
         switch (choice) {
             case 1: {
                 std::string base_url = "https://myshoppinglistapp.com/list/";
-                std::string list_id = generateUUID();
+                std::string list_id = mdcli::generateUUID();
                 std::string full_url = base_url + list_id;
 
                 std::cout << "Give a name to your list: ";
-                std::string list_name;
                 std::cin >> list_name;
 
-                // ShoppingList shoppingList(list_id, list_name, full_url);
-
-                // ShoppingListResponse shoppingListResponse = addProductsToList(shoppingList);
-                // std::cout << shoppingList.getItems() << std::endl;
-                // json shoppingListJson = serializeGSet(shoppingList.getItems());
-
-                std::cout << "Create list - CLOUD MODE" << std::endl;
-                request_json["command"] = "CREATE_LIST";
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}};
-
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", shoppingListJson}};
-                // request_json["parameters"] = {{"list_url", full_url}, {"list_name", list_name}, {"list_items", "Work in progress"}};
                 break;
             }
             case 2: {
                 std::cout << "Enter List URL to retrieve: ";
-                std::cin >> list_url_client_input;
+                std::cin >> get_list_url;
 
-                std::cout << "Get list - CLOUD MODE" << std::endl;
-                request_json["command"] = "GET_LIST";
                 break;
             }
             case 3: {
+                listClientShoppingLists(); // ALTERAR PARA DAR DISPLAY ÀS SHOPPING LISTS QUE O CLIENTE TEM
+                std::cout << "Pick shopping list url: ";
+                std::cin >> update_list_list_url;
+                listShoppingListItems(update_list_list_url);
+                std::cout << "Type the product you want to add/edit: ";
+                std::cin >> product_name;
+
+                std::cout << "Insert the quantity you want to add/subtract." << std::endl;
+                std::cout << "To add, use a positive value." << std::endl;
+                std::cout << "To subtract, use a negative value." << std::endl;
+                std::cout << "Quantity: ";
+                std::cin >> product_quantity;
+                break;
+            }
+            case 0: {
                 std::cout << "Thank You for using our platform!" << std::endl;
                 s_interrupted = 1;
                 break;
@@ -252,61 +270,70 @@ int main() {
             }
         }
 
-        if (choice == 1 || choice == 2) {
-            std::string request = request_json.dump();
-
+        bool cloud_mode = client.get_cloud_mode();
+        if (choice != 0) {
             if (choice == 1) {
-                // Submits update made to list (PUSH)
-                zmsg* msg = new zmsg();
-                client.send("CREATE_LIST", msg);
-            } else if (choice == 2) {
-                // Ask for a list (DEALER)
-                const char* url_list_msg_parameter = list_url_client_input.c_str();
-                zmsg* msg = new zmsg(url_list_msg_parameter);
-                client.send("GET_LIST", msg);
-                delete msg;
-            }
-
-            zmsg* reply = client.recv();
-            if (reply) {
-                std::cout << "Reply received: " << std::endl;
-                reply->dump();
-
-                ustring temp = reply->pop_front();
-                if (temp.empty()) {
-                    std::cerr << "Error: Received empty reply!" << std::endl;
-                    // Handle the error, return, or exit
-                } else {
-                    std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-                    std::cout << "Response from server: " << response << std::endl;
+                // Create an empty Shopping List (DEALER)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                std::string generated_url = "zxcv"; // TEM QUE SE GERAR UM URL ÚNICO AQUI
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg();
+                    msg->push_front(list_name.c_str());
+                    msg->push_front(generated_url.c_str());
+                    client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
+                    delete msg;
                 }
+                else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
+            } 
+            else if (choice == 2) {
+                // Ask for a Shopping List (DEALER)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                const char* url_list_msg_parameter = get_list_url.c_str();
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg(url_list_msg_parameter);
+                    client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                }
+                else {
+                    std::cout << "xxxxxxxxx Server Unavailable xxxxxxxxx" << std::endl;
+                }
+            }
+            else if (choice == 3) {
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg();
+                    msg->push_front(std::to_string(product_quantity).c_str());
+                    msg->push_front(product_name.c_str());
+                    msg->push_front(update_list_list_url.c_str());
+                    client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
+                    delete msg;
+                }
+                else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
+            }
 
-                delete reply;
-            } else {
-                std::cout << "No response received from the server." << std::endl;
+            if (cloud_mode == 1) {
+                zmsg* reply = client.recv();
+                if (reply) {
+                    std::cout << "Reply received: " <<  std::endl;
+                    reply->dump();
+
+                    ustring temp = reply->pop_front();
+                    if (temp.empty()) {
+                        std::cerr << "Error: Received empty reply!" << std::endl;
+                    } else {
+                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                        std::cout << "Response from server: " << response << std::endl;
+                    }
+                    
+                    delete reply;
+                } else {
+                    std::cout << "No response received from the server." << std::endl;
+                }
             }
         }
-
-        // Check for list updates via SUB socket
-        if (choice != 3) {
-            std::string sub_update = client.receive_update();
-            if (!sub_update.empty()) {
-                std::cout << "List update notification: " << sub_update << std::endl;
-            }
-        }
-
-        // std::string request = request_json.dump();;
-        // std::cout << request << std::endl;
-
-        // zmq::message_t msg(request.size());
-        // memcpy(msg.data(), request.c_str(), request.size());
-        // socket.send(msg, zmq::send_flags::none);
-
-        // zmq::message_t reply;
-        // socket.recv(reply, zmq::recv_flags::none);
-
-        // std::string response(static_cast<char*>(reply.data()), reply.size());
-        // std::cout << "Response from server: " << response << std::endl;
     }
 
     return 0;
