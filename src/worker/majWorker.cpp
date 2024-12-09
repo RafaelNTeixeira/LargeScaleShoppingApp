@@ -13,7 +13,7 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose, std::string push_endpoint, std::string pull_endpoint): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose) {
+    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose, std::string push_endpoint, std::vector<std::string> pull_endpoint): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose), m_push_endpoint(push_endpoint), m_pull_endpoints(pull_endpoint) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         s_catch_signals ();
@@ -27,25 +27,37 @@ public:
         delete m_worker;
         delete m_worker_pub;
         delete m_context;
-        delete m_worker_push; 
-        delete m_worker_pull;
+        if (m_worker_push) {
+            m_worker_push->close();
+            delete m_worker_push;
+        }
+        if (m_worker_pull) {
+            m_worker_pull->close();
+            delete m_worker_pull;
+        }
     }
 
-    void connect_worker_sockets(const std::string &push_endpoint, const std::string &pull_endpoint) {
+    void connect_worker_sockets(const std::string &push_endpoint, const std::vector<std::string> &pull_endpoint) {
         m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH); 
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
 
         try {
             m_worker_push->bind(push_endpoint);
-            m_worker_pull->connect(pull_endpoint);
+            std::cout << "PUSH socket bound to: " << push_endpoint << std::endl;
         } catch (const zmq::error_t &e) {
             std::cerr << "ZMQ Error: " << e.what() << std::endl;
             exit(1);
         }
 
-
-        std::cout << "PUSH socket connect to: " << push_endpoint << std::endl;
-        std::cout << "PULL socket connect to: " << pull_endpoint << std::endl;
+        for(const auto &endpoint : pull_endpoint) {
+            try {
+                m_worker_pull->connect(endpoint);
+                std::cout << "PULL socket connected to: " << endpoint << std::endl;
+            } catch (const zmq::error_t &e) {
+                std::cerr << "ZMQ Error (PULL connect): " << e.what() << std::endl;
+                exit(1);
+            }
+        }
     }
 
     void send_to_worker(zmsg *msg) {
@@ -294,6 +306,8 @@ private:
 
     zmq::socket_t *m_worker_push{};  
     zmq::socket_t *m_worker_pull{};
+    std::string m_push_endpoint;
+    std::vector<std::string> m_pull_endpoints;
 };
 
 #endif
