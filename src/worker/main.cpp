@@ -8,11 +8,26 @@
 
 using json = nlohmann::json;
 
-void run_worker(const std::string &broker, const std::string &service, bool verbose) {
-    mdwrk session(broker.c_str(), service.c_str(), "LIST_MANAGEMENT", verbose);
+void run_worker(const std::string &broker, const std::string &service, bool verbose, const std::string &push_endpoint, const std::string &pull_endpoint) {
+    mdwrk session(broker.c_str(), service.c_str(), "LIST_MANAGEMENT", verbose, push_endpoint, pull_endpoint);
 
     zmsg *reply = nullptr;
     while (true) {
+
+        zmsg *msg_to_send = new zmsg("hello");
+        session.send_to_worker(msg_to_send);
+        delete msg_to_send;
+
+        zmsg *received_msg = session.recv_from_worker();
+        if (received_msg) {
+            std::cout << "Worker received inter-worker message:" << std::endl;
+            received_msg->dump();
+            delete received_msg;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+        /*
         zmsg *request = session.recv(reply);
         if (!request) {
             break; // Worker interrupted
@@ -23,6 +38,8 @@ void run_worker(const std::string &broker, const std::string &service, bool verb
 
         // Process the request (simple echo here)
         reply = request;
+        */
+        
     }
 }
 
@@ -32,13 +49,14 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting workers..." << std::endl;
 
     // Launch three threads for three independent workers
-    std::thread worker1(run_worker, "tcp://localhost:5555", "tcp://*:5558", verbose);
-    std::thread worker2(run_worker, "tcp://localhost:5555", "tcp://*:5559", verbose);
-    std::thread worker3(run_worker, "tcp://localhost:5555", "tcp://*:5560", verbose);
+    std::thread worker1(run_worker, "", "", verbose, "tcp://*:6000", "tcp://localhost:6001");
+    std::thread worker2(run_worker, "", "", verbose, "tcp://*:6001", "tcp://localhost:6000");
+
+    //std::thread worker3(run_worker, "tcp://localhost:5555", "tcp://*:5560", verbose);
 
     worker1.join();
     worker2.join();
-    worker3.join();
+    //worker3.join();
 
     std::cout << "All workers finished." << std::endl;
 

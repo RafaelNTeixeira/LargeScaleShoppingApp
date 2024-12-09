@@ -13,11 +13,12 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose) {
+    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose, std::string push_endpoint, std::string pull_endpoint): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         s_catch_signals ();
-        connect_to_broker ();
+        // connect_to_broker ();
+        connect_worker_sockets(push_endpoint, pull_endpoint);
     }
 
     //  ---------------------------------------------------------------------
@@ -26,6 +27,50 @@ public:
         delete m_worker;
         delete m_worker_pub;
         delete m_context;
+        delete m_worker_push; 
+        delete m_worker_pull;
+    }
+
+    void connect_worker_sockets(const std::string &push_endpoint, const std::string &pull_endpoint) {
+        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH); 
+        m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
+
+        try {
+            m_worker_push->bind(push_endpoint);
+            m_worker_pull->connect(pull_endpoint);
+        } catch (const zmq::error_t &e) {
+            std::cerr << "ZMQ Error: " << e.what() << std::endl;
+            exit(1);
+        }
+
+
+        std::cout << "PUSH socket connect to: " << push_endpoint << std::endl;
+        std::cout << "PULL socket connect to: " << pull_endpoint << std::endl;
+    }
+
+    void send_to_worker(zmsg *msg) {
+        if(msg) {
+            msg->send(*m_worker_push);
+            if (m_verbose) {
+                std::cout << "Sent to worker:" << std::endl;
+                msg->dump();
+            }
+        }
+    }
+
+    zmsg *recv_from_worker() {
+        zmq::pollitem_t items[] = {{*m_worker_pull, 0, ZMQ_POLLIN, 0}};
+        zmq::poll(items, 1, std::chrono::milliseconds(1000));
+
+        if (items[0].revents & ZMQ_POLLIN) {
+            zmsg *msg = new zmsg(*m_worker_pull);
+            if (m_verbose) {
+                std::cout << "Received from worker:" << std::endl;
+                msg->dump();
+            }
+            return msg;
+        }
+        return nullptr;
     }
 
 
@@ -246,6 +291,9 @@ private:
 
     // Return address, if any
     std::string m_reply_to;
+
+    zmq::socket_t *m_worker_push{};  
+    zmq::socket_t *m_worker_pull{};
 };
 
 #endif
