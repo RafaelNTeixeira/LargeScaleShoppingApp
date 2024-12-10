@@ -127,8 +127,13 @@ public:
         }
     }
 
+    std::map<size_t, std::string> getRing() {
+        return ring;
+    }
+
 }; 
 
+/*
 int main() {
     ConsistentHashing ch(3);
     ch.addServer("192.168.1.1:8080");
@@ -140,3 +145,4 @@ int main() {
 
     return 0;
 }
+*/

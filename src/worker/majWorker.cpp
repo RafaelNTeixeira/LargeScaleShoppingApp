@@ -3,6 +3,9 @@
 
 #include "../zmq/zmsg.hpp"
 #include "../zmq/mdp.h"
+#include "../server/consistent_hashing.cpp"
+
+using json = nlohmann::json;
 
 //  Reliability parameters
 
@@ -13,12 +16,11 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string service, int verbose, std::string push_endpoint, std::vector<std::string> pull_endpoint): m_broker(broker), m_worker_pub_bind(worker_pub), m_service(service), m_verbose(verbose), m_push_endpoint(push_endpoint), m_pull_endpoints(pull_endpoint) {
+    mdwrk (std::string broker, std::string worker_pub, std::string worker_push_bind, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_push_bind(worker_push_bind), m_service(service), m_verbose(verbose), ring(1) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         s_catch_signals ();
-        // connect_to_broker ();
-        connect_worker_sockets(push_endpoint, pull_endpoint);
+        connect_to_broker ();
     }
 
     //  ---------------------------------------------------------------------
@@ -27,62 +29,37 @@ public:
         delete m_worker;
         delete m_worker_pub;
         delete m_context;
-        if (m_worker_push) {
-            m_worker_push->close();
-            delete m_worker_push;
-        }
-        if (m_worker_pull) {
-            m_worker_pull->close();
-            delete m_worker_pull;
-        }
     }
 
-    void connect_worker_sockets(const std::string &push_endpoint, const std::vector<std::string> &pull_endpoint) {
-        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH); 
-        m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
+    zmsg* recv_worker(mdwrk& worker) {
+        std::cout << "Listening for messages from workers..." << std::endl;
 
-        try {
-            m_worker_push->bind(push_endpoint);
-            std::cout << "PUSH socket bound to: " << push_endpoint << std::endl;
-        } catch (const zmq::error_t &e) {
-            std::cerr << "ZMQ Error: " << e.what() << std::endl;
-            exit(1);
-        }
+        zmq::pollitem_t items[] = {
+            { *(worker.get_worker_pull()), 0, ZMQ_POLLIN, 0 }
+        };
 
-        for(const auto &endpoint : pull_endpoint) {
-            try {
-                m_worker_pull->connect(endpoint);
-                std::cout << "PULL socket connected to: " << endpoint << std::endl;
-            } catch (const zmq::error_t &e) {
-                std::cerr << "ZMQ Error (PULL connect): " << e.what() << std::endl;
-                exit(1);
-            }
-        }
-    }
-
-    void send_to_worker(zmsg *msg) {
-        if(msg) {
-            msg->send(*m_worker_push);
-            if (m_verbose) {
-                std::cout << "Sent to worker:" << std::endl;
-                msg->dump();
-            }
-        }
-    }
-
-    zmsg *recv_from_worker() {
-        zmq::pollitem_t items[] = {{*m_worker_pull, 0, ZMQ_POLLIN, 0}};
-        zmq::poll(items, 1, std::chrono::milliseconds(1000));
+        zmq::poll(items, 1, std::chrono::milliseconds(500)); 
 
         if (items[0].revents & ZMQ_POLLIN) {
-            zmsg *msg = new zmsg(*m_worker_pull);
-            if (m_verbose) {
-                std::cout << "Received from worker:" << std::endl;
-                msg->dump();
+            zmsg* msg = new zmsg(*(worker.get_worker_pull()));
+            std::cout << "Received message from another worker:" << std::endl;
+            msg->dump();
+
+            std::string command = (char*)msg->pop_front().c_str();
+            if (command == k_mdpw_join_ring) {
+                ustring u_newNode = msg->pop_front();
+                std::string newNode(reinterpret_cast<const char*>(u_newNode.c_str()), u_newNode.size());
+                std::cout << "Received JOIN_RING from: " << newNode << std::endl;
+
+                ring.addServer(newNode);
+            } else {
+                std::cout << "Unknown command received: " << command << std::endl;
             }
-            return msg;
+
+            return msg; 
         }
-        return nullptr;
+
+        return nullptr; 
     }
 
 
@@ -115,6 +92,38 @@ public:
         std::cout << "Sent to broker: " << std::endl;
         msg->dump();
         msg->send (*m_worker);
+        delete msg;
+    }
+
+    //  ---------------------------------------------------------------------
+    //  Send message to worker
+    //  If no _msg is provided, creates one internally
+    void send_to_worker(const char *command, json ring, zmsg *_msg) {
+        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+
+        // Frame 0: Empty frame
+        // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
+        // Frame 2: 0x03 (one byte, representing REPLY)
+        // Frame 3: Client address (envelope stack)
+        // Frame 4: Empty (zero bytes, envelope delimiter)
+        // Frames 5+: Reply body (opaque binary)
+
+        //  Stack protocol envelope to start of message
+
+        std::string ring_str = ring.dump();
+        msg->push_front (ring_str.c_str());
+        msg->push_front (command);
+        msg->push_front (k_mdpw_worker.data());
+        msg->push_front ("");
+
+        if (m_verbose) {
+            s_console ("I: sending %s to worker",
+                mdps_commands [(int) *command].data());
+            msg->dump ();
+        }
+        std::cout << "Sent to worker: " << std::endl;
+        msg->dump();
+        msg->send (*m_worker_push);
         delete msg;
     }
 
@@ -154,6 +163,24 @@ public:
 
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
+
+        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+        m_worker_push->bind(m_worker_push_bind.c_str());
+        std::cout << "PUSH socket bound to " << m_worker_push_bind << std::endl;
+
+        m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
+        std::cout << "PULL socket created" << std::endl;
+
+        // for (int i = 0; i < m_known_push_ports.size(); i++) {
+        //     size_t pos = m_worker_push_bind.find_last_of(':');
+        //     std::string worker_push_port = m_worker_push_bind.substr(pos + 1);
+        //     std::cout << "worker_push_port: " << worker_push_port << std::endl;
+        //     if (m_known_push_ports[i] != worker_push_port) {
+        //         std::cout << "know_push_port: " << m_known_push_ports[i] << std::endl;
+        //         std::string connect_to_worker_push = "tcp://localhost:" + worker_push_port;
+        //         m_worker_pull->connect(connect_to_worker_push.c_str());
+        //     }
+        // }
 
         s_console("I: connecting DEALER to broker at %s...", m_broker.c_str());
         s_console("I: binding PUB at %s...", m_worker_pub_bind.c_str());
@@ -200,8 +227,11 @@ public:
 
         while (!s_interrupted) {
             zmq::pollitem_t items[] = {
-                { *m_worker,  0, ZMQ_POLLIN, 0 } };
-            zmq::poll (items, 1, std::chrono::milliseconds(m_heartbeat));
+                { *m_worker, 0, ZMQ_POLLIN, 0 } , 
+                { *m_worker_pull, 0, ZMQ_POLLIN, 0 }
+            };
+            zmq::poll (items, 2, std::chrono::milliseconds(m_heartbeat));
+
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
@@ -262,6 +292,42 @@ public:
                     msg->dump ();
                 }
                 delete msg;
+            } 
+            if (items[1].revents & ZMQ_POLLIN) {
+                zmsg *msg = new zmsg(*m_worker_pull);
+                std::cout << "Received message from worker:" << std::endl;
+                msg->dump();
+                if (m_verbose) {
+                    s_console ("I: received message from worker:");
+                    msg->dump ();
+                }
+                assert (msg->parts () >= 3);
+
+                ustring empty = msg->pop_front ();
+                std::string empty_str = (char*) empty.c_str();
+                std::cout << "empty:" << empty_str << std::endl;
+
+                assert (empty.compare((unsigned char *)"") == 0);
+                //assert (strcmp (empty, "") == 0);
+                //free (empty);
+
+                ustring header = msg->pop_front ();
+                std::string header_str = (char*) header.c_str();
+                std::cout << "header:" << header_str << std::endl;
+                assert (header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
+                //free (header);
+
+                std::string command =(char*) msg->pop_front ().c_str();
+                std::cout << "command:" << command << std::endl;
+                
+                if (command == k_mdpw_join_ring) {
+                    std::cout << "In rec join ring cmd" << std::endl;
+                    ustring u_newNode = msg->pop_front();
+                    std::string newNode(reinterpret_cast<const char*>(u_newNode.c_str()), u_newNode.size());
+                    std::cout << "Received JOIN_RING from: " << newNode << std::endl;
+
+                    ring.addServer(newNode);
+                }
             }
             else
             if (--m_liveness == 0) {
@@ -282,14 +348,29 @@ public:
         return NULL;
     }
 
+    std::string get_worker_push_bind() {
+        return m_worker_push_bind;
+    }
+
+    zmq::socket_t* get_worker_pull() {
+        return m_worker_pull;
+    }
+
+    ConsistentHashing getRing() {
+        return ring;
+    }
+
 private:
     static constexpr uint32_t n_heartbeat_liveness = 3; // 3-5 is reasonable
     const std::string m_broker;
     const std::string m_worker_pub_bind;
+    const std::string m_worker_push_bind;
     const std::string m_service;
     zmq::context_t *m_context;
     zmq::socket_t *m_worker{};  //  Socket to broker
     zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
+    zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
+    zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
     const int m_verbose;         //  Print activity to stdout
 
     // Heartbeat management
@@ -304,10 +385,7 @@ private:
     // Return address, if any
     std::string m_reply_to;
 
-    zmq::socket_t *m_worker_push{};  
-    zmq::socket_t *m_worker_pull{};
-    std::string m_push_endpoint;
-    std::vector<std::string> m_pull_endpoints;
+    ConsistentHashing ring;
 };
 
 #endif
