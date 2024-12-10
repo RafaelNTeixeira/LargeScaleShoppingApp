@@ -26,11 +26,19 @@ client:
 runClient:
 	./src/client/client
 
-testCRDT: test/crdt/test.cpp src/crdt/*
+compileTestCRDT: test/crdt/test.cpp src/crdt/*
 	g++ test/crdt/test.cpp -o test/crdt/test -O3 -lgtest -lgtest_main -pthread
 
-test: testCRDT
+compileTestDatabase: test/database/test.cpp src/database.h
+	g++ test/database/test.cpp -o test/database/test -O3 -lgtest -lgtest_main -pthread
+
+testCRDT: compileTestCRDT
 	./test/crdt/test
+
+testDatabase: compileTestDatabase
+	./test/database/test
+	
+test: testCRDT testDatabase
 
 database:
 	sqlite3 database/cloud/database.db < database/cloud/database.sql
