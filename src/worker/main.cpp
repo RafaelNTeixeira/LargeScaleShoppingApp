@@ -4,55 +4,43 @@
 #include "request_handler.cpp"
 #include <nlohmann/json.hpp>
 #include "majWorker.cpp"
+#include <thread>
 
 using json = nlohmann::json;
 
-int main(int argc, char *argv []) {
-    int verbose = (argc > 1 && strcmp (argv [1], "-v") == 0);
-    mdwrk session ("tcp://localhost:5555", "GET_LIST", verbose);
+void run_worker(const std::string &broker, const std::string &service, bool verbose) {
+    mdwrk session(broker.c_str(), service.c_str(), "LIST_MANAGEMENT", verbose);
 
-    std::cout << "Worker is running..." << std::endl;
-
-    //initDatabase();
-
-    zmsg *reply = 0;
+    zmsg *reply = nullptr;
     while (true) {
-        zmsg *request = session.recv (reply);
-        std::cout << "Worker got request: " << std::endl;
-        request->dump();
-        if (request == 0) {
-            break; //  Worker was interrupted
+        zmsg *request = session.recv(reply);
+        if (!request) {
+            break; // Worker interrupted
         }
-        reply = request; //  Echo is complex... :-)
+
+        std::cout << "Worker got request:" << std::endl;
+        request->dump();
+
+        // Process the request (simple echo here)
+        reply = request;
     }
-    return 0;
+}
 
-    // while (true) {
-    //     zmq::poll(items, 1, std::chrono::milliseconds(-1));
+int main(int argc, char *argv[]) {
+    bool verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
 
-    //     if (items[0].revents & ZMQ_POLLIN) {
-    //         zmq::message_t request;
-    //         auto rec = brocker_socket.recv(request, zmq::recv_flags::none);
+    std::cout << "Starting workers..." << std::endl;
 
-    //         if (!rec) {
-    //             std::cerr << "Worker failed to receive message." << std::endl;
-    //             break;
-    //         }
+    // Launch three threads for three independent workers
+    std::thread worker1(run_worker, "tcp://localhost:5555", "tcp://*:5558", verbose);
+    std::thread worker2(run_worker, "tcp://localhost:5555", "tcp://*:5559", verbose);
+    std::thread worker3(run_worker, "tcp://localhost:5555", "tcp://*:5560", verbose);
 
-    //         std::string req_str(static_cast<char*>(request.data()), request.size());
-    //         json request_json = json::parse(req_str);
+    worker1.join();
+    worker2.join();
+    worker3.join();
 
-    //         std::cout << "Received request: " << request_json.dump() << "\n";
-
-    //         json response_json = handleRequest(request_json);
-
-    //         // Send response back to requester
-    //         std::string response_str = response_json.dump();
-    //         zmq::message_t reply(response_str.size());
-    //         memcpy(reply.data(), response_str.c_str(), response_str.size());
-    //         brocker_socket.send(reply, zmq::send_flags::none);
-    //     }
-    // }
+    std::cout << "All workers finished." << std::endl;
 
     return 0;
 }

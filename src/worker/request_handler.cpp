@@ -1,10 +1,15 @@
 #include <iostream>
 #include <string>
 #include <zmq.hpp>
-#include "database.cpp"
+#include "database.h"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
+
+struct Response {
+    std::string reply;
+    std::string shopping_list;
+};
 
 json concatenateResponses(const json& response_json1, const json& response_json2) {
     json response_json;
@@ -24,30 +29,38 @@ json concatenateResponses(const json& response_json1, const json& response_json2
     return response_json;
 }
 
-json handleRequest(json& request) {
-    json response_json;
+Response handleRequest(std::string url_list, std::string request, zmsg* msg) {
+    Response res;
 
-    if (!request.contains("command")) {
-        response_json["status"] = "error";
-        response_json["message"] = "Missing 'command' in request.";
-        return response_json;
-    }
+    if (request == "CREATE_LIST") {
+        ustring list_name = msg->pop_front();
+        std::string list_name_str = (char*) list_name.c_str();
+        std::cout << "List name received: " << list_name_str << std::endl;
 
-    std::string command = request["command"];
-
-    if (command == "CREATE_LIST") {
-        
-        response_json["status"] = "success";
-        response_json["message"] = "List created successfully.";
+        res.shopping_list = "[MOCK - CREATE_LIST] shopping list items: tomato - 1; potato - 2";
+        res.reply = "create_list";
     } 
-    else if (command == "GET_LIST") {
-        response_json["status"] = "error";
-        response_json["message"] = "Missing 'list_url' for GET_LIST request.";
+    else if (request == "GET_LIST") {
+        std::cout << "(NEEDS DEVELOPMENT) Got url for GET_LIST: " << url_list << std::endl;
+        res.shopping_list = "[MOCK - GET_LIST] shopping list items: tomato - 1; potato - 2";
+        res.reply = "get_list";
+    } 
+    else if (request == "UPDATE_LIST") {
+        ustring product_name = msg->pop_front();
+        std::string product_name_str = (char*) product_name.c_str();
+        std::cout << "Product name received: " << product_name_str << std::endl;
+
+        ustring product_quant = msg->pop_front();
+        std::string product_quantity_str = (char*) product_quant.c_str();
+        int product_quantity = std::stoi(product_quantity_str);
+        std::cout << "Product quantity received: " << product_quantity_str << std::endl;
+
+        res.shopping_list = "[MOCK - GET_LIST] shopping list items: tomato - 1; potato - 2";
+        res.reply = "update_list";
     } 
     else {
-        response_json["status"] = "error";
-        response_json["message"] = "Unknown Request";
+       res.reply = "unknown request";
     }
 
-    return response_json;
+    return res;
 }
