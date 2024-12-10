@@ -329,6 +329,7 @@ private:
         // Frames 5+: Request body (opaque binary)
 
         //  Stack protocol envelope to start of message
+        
         if (option.size()>0) {                 //  Optional frame after command
             msg->push_front (option.c_str());
         }

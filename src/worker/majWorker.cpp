@@ -16,7 +16,7 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string worker_push_bind, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_push_bind(worker_push_bind), m_service(service), m_verbose(verbose), ring(1) {
+    mdwrk (std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_service(service), m_verbose(verbose), ring(1) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         s_catch_signals ();
@@ -30,38 +30,6 @@ public:
         delete m_worker_pub;
         delete m_context;
     }
-
-    zmsg* recv_worker(mdwrk& worker) {
-        std::cout << "Listening for messages from workers..." << std::endl;
-
-        zmq::pollitem_t items[] = {
-            { *(worker.get_worker_pull()), 0, ZMQ_POLLIN, 0 }
-        };
-
-        zmq::poll(items, 1, std::chrono::milliseconds(500)); 
-
-        if (items[0].revents & ZMQ_POLLIN) {
-            zmsg* msg = new zmsg(*(worker.get_worker_pull()));
-            std::cout << "Received message from another worker:" << std::endl;
-            msg->dump();
-
-            std::string command = (char*)msg->pop_front().c_str();
-            if (command == k_mdpw_join_ring) {
-                ustring u_newNode = msg->pop_front();
-                std::string newNode(reinterpret_cast<const char*>(u_newNode.c_str()), u_newNode.size());
-                std::cout << "Received JOIN_RING from: " << newNode << std::endl;
-
-                ring.addServer(newNode);
-            } else {
-                std::cout << "Unknown command received: " << command << std::endl;
-            }
-
-            return msg; 
-        }
-
-        return nullptr; 
-    }
-
 
     //  ---------------------------------------------------------------------
     //  Send message to broker
@@ -104,11 +72,7 @@ public:
         // Frame 0: Empty frame
         // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
         // Frame 2: 0x03 (one byte, representing REPLY)
-        // Frame 3: Client address (envelope stack)
-        // Frame 4: Empty (zero bytes, envelope delimiter)
-        // Frames 5+: Reply body (opaque binary)
-
-        //  Stack protocol envelope to start of message
+        // Frame 3: Ring Status (json)
 
         std::string ring_str = ring.dump();
         msg->push_front (ring_str.c_str());
@@ -164,23 +128,12 @@ public:
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
 
-        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
-        m_worker_push->bind(m_worker_push_bind.c_str());
-        std::cout << "PUSH socket bound to " << m_worker_push_bind << std::endl;
-
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
-        std::cout << "PULL socket created" << std::endl;
+        m_worker_pull->bind(m_worker_pull_bind.c_str());
+        std::cout << "PULL socket bound to " << m_worker_pull_bind << std::endl;
 
-        // for (int i = 0; i < m_known_push_ports.size(); i++) {
-        //     size_t pos = m_worker_push_bind.find_last_of(':');
-        //     std::string worker_push_port = m_worker_push_bind.substr(pos + 1);
-        //     std::cout << "worker_push_port: " << worker_push_port << std::endl;
-        //     if (m_known_push_ports[i] != worker_push_port) {
-        //         std::cout << "know_push_port: " << m_known_push_ports[i] << std::endl;
-        //         std::string connect_to_worker_push = "tcp://localhost:" + worker_push_port;
-        //         m_worker_pull->connect(connect_to_worker_push.c_str());
-        //     }
-        // }
+        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+        std::cout << "PUSH socket created" << std::endl;
 
         s_console("I: connecting DEALER to broker at %s...", m_broker.c_str());
         s_console("I: binding PUB at %s...", m_worker_pub_bind.c_str());
@@ -231,7 +184,6 @@ public:
                 { *m_worker_pull, 0, ZMQ_POLLIN, 0 }
             };
             zmq::poll (items, 2, std::chrono::milliseconds(m_heartbeat));
-
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
@@ -348,10 +300,13 @@ public:
         return NULL;
     }
 
-    std::string get_worker_push_bind() {
-        return m_worker_push_bind;
+    std::string get_worker_pull_bind() {
+        return m_worker_pull_bind;
     }
 
+    zmq::socket_t* get_worker_push() {
+        return m_worker_push;
+    }
     zmq::socket_t* get_worker_pull() {
         return m_worker_pull;
     }
@@ -364,7 +319,7 @@ private:
     static constexpr uint32_t n_heartbeat_liveness = 3; // 3-5 is reasonable
     const std::string m_broker;
     const std::string m_worker_pub_bind;
-    const std::string m_worker_push_bind;
+    const std::string m_worker_pull_bind;
     const std::string m_service;
     zmq::context_t *m_context;
     zmq::socket_t *m_worker{};  //  Socket to broker

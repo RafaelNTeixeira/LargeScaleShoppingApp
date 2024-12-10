@@ -12,38 +12,6 @@
 
 using json = nlohmann::json;
 
-bool isProxyAvailable(zmq::socket_t& socket) {
-    try {
-        int timeout = 1000;  // 1 second
-        socket.set(zmq::sockopt::rcvtimeo, timeout);
-
-        // Send a ping message to check if proxy is available
-        json request_json;
-        request_json["command"] = "PING";
-
-        std::string request_str = request_json.dump();
-
-        zmq::message_t request(request_str.size());
-        memcpy(request.data(), request_str.c_str(), request_str.size());
-
-        socket.send(request, zmq::send_flags::none);  // Send message to proxy
-
-        zmq::message_t reply;
-        zmq::recv_result_t result = socket.recv(reply, zmq::recv_flags::none);  // Wait for reply (or timeout)
-
-        if (result.has_value()) {
-            std::cout << "Connected to the proxy, operating in cloud mode..." << std::endl;
-            return true;  // Proxy is available
-        } else {
-            std::cout << "Timeout occurred, proxy not available. Operating in local mode..." << std::endl;
-            return false;  // Proxy is unavailable
-        }
-    } catch (const zmq::error_t& e) {
-        std::cout << "Could not connect to the proxy, operating in local mode..." << std::endl;
-        return false;  // Proxy is unavailable
-    }
-}
-
 // Method to print query results
 static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     for (int i = 0; i < argc; i++) {
@@ -162,13 +130,6 @@ bool addProductsToList(ShoppingList& shoppingList) {
 
     return true;
 }
-
-// void checkProxyConnection(zmq::socket_t& socket) {
-//     while (true) {
-//         connected_to_proxy = isProxyAvailable(socket);
-//         std::this_thread::sleep_for(std::chrono::seconds(5)); // Check every 5 seconds
-//     }
-// }
 
 // Function receive shopping list updates from the SUB socket
 void listenForUpdates(mdcli& client) {
@@ -296,7 +257,7 @@ int main() {
                     client.send("LIST_MANAGEMENT", "GET_LIST", msg);
                 }
                 else {
-                    std::cout << "xxxxxxxxx Server Unavailable xxxxxxxxx" << std::endl;
+                    std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
                 }
             }
             else if (choice == 3) {

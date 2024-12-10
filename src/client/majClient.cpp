@@ -137,9 +137,6 @@ class mdcli {
         assert(request_p);
         zmsg *request = request_p;
 
-        request->push_front(sub_request.c_str());
-        request->push_front(service.c_str());
-
         // if (m_verbose) {
         //     s_console("I: send request to '%s' service:", service.c_str());
         //     request->dump();
@@ -148,8 +145,11 @@ class mdcli {
         //  Prefix request with protocol frames
         //  Frame 0: empty (REQ emulation)
         //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
-        //  Frame 2: Request Name (printable string)
-        //  Frame 3: Service Name (printable string) (HEARTBEAT OR LIST_MANAGEMENT)
+        //  Frame 2: Service Name (printable string) (HEARTBEAT OR LIST_MANAGEMENT)
+        //  Frame 3: Request Name (printable string)
+        
+        request->push_front(sub_request.c_str());
+        request->push_front(service.c_str());
         request->push_front(k_mdp_client.data());
         request->push_front("");
 

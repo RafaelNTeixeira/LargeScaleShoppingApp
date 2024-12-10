@@ -26,33 +26,30 @@ json convert_ring_to_json(ConsistentHashing ring_) {
     return json_ring;
 }
 
-// Method to connect workers PULL sockets to other workers PUSH sockets
-void monitor_worker_ports(zmq::context_t &context, std::unordered_set<std::string> &bound_ports, mdwrk &worker) {
-    std::cout << "Entered monitor_worker_ports" << std::endl;
+// Method to connect workers PUSH sockets to other workers PULL sockets
+void monitor_worker_ports(std::unordered_set<std::string> &bound_ports, mdwrk &worker) {
     while (is_running.load()) {
         {
             std::lock_guard<std::mutex> lock(ports_mutex); // Lock ports for thread safety
-            std::cout << "1-monitor" << std::endl;
             for (const auto &port : workers_ports) {
-                std::cout << "2-monitor" << std::endl;
                 std::cout << "Port: " << port << std::endl;
                 if (bound_ports.find(port) == bound_ports.end()) { // If there are no new ports, skip
-                    std::string connect_address = "tcp://localhost:" + port; // Build connect address for pull socket
+                    std::string connect_address = "tcp://localhost:" + port; // Build connect address for PUSH socket
                     std::cout << "connect_address: " << connect_address << std::endl;
                     try {
                         // Check if the worker's own push port is the same as this port
-                        size_t pos = worker.get_worker_push_bind().find_last_of(':');
-                        std::string worker_push_port = worker.get_worker_push_bind().substr(pos + 1);
-                        std::cout << "worker_push_port: " << worker_push_port << std::endl;
-                        if (worker_push_port != port) {
-                            worker.get_worker_pull()->connect(connect_address.c_str());
+                        size_t pos = worker.get_worker_pull_bind().find_last_of(':');
+                        std::string worker_pull_port = worker.get_worker_pull_bind().substr(pos + 1);
+                        std::cout << "worker_pull_port: " << worker_pull_port << std::endl;
+                        if (worker_pull_port != port) {
+                            worker.get_worker_push()->connect(connect_address.c_str());
+                            std::cout << "Successfully connected PULL worker to port: " << connect_address << std::endl;
                             bound_ports.insert(port);
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                            std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // To assure other threads finish the other worker's connections
                             std::cout << "Entering ring push" << std::endl;
                             ConsistentHashing ring = worker.getRing();
                             json json_ring = convert_ring_to_json(ring);
                             worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
-                            std::cout << "Successfully connected PULL worker to port: " << connect_address << std::endl;
                         }
                     } catch (const zmq::error_t &e) {
                         std::cerr << "Failed to connect PULL worker to port " << connect_address << ": " << e.what() << std::endl;
@@ -64,21 +61,20 @@ void monitor_worker_ports(zmq::context_t &context, std::unordered_set<std::strin
     }
 }
 
-void run_worker(const std::string &broker, const std::string &service, const std::string &worker_push_port, bool verbose) {
+void run_worker(const std::string &broker, const std::string &service, const std::string &worker_pull_port, bool verbose) {
     {
         std::lock_guard<std::mutex> lock(ports_mutex);
-        workers_ports.push_back(worker_push_port);
+        workers_ports.push_back(worker_pull_port);
     }
 
-    std::string worker_push_bind = "tcp://*:" + worker_push_port; // Create bind address for PUSH socket
-    mdwrk session(broker.c_str(), service.c_str(), worker_push_bind.c_str(), "LIST_MANAGEMENT", verbose);
+    std::string worker_pull_bind = "tcp://*:" + worker_pull_port; // Create bind address for PULL socket
+    mdwrk session(broker.c_str(), service.c_str(), worker_pull_bind.c_str(), "LIST_MANAGEMENT", verbose);
 
     // To track connected ports
     std::unordered_set<std::string> bound_ports;
-        zmq::context_t context(1);
 
     // Thread to monitor new workers connections
-    std::thread monitor_thread(monitor_worker_ports, std::ref(context), std::ref(bound_ports), std::ref(session));
+    std::thread monitor_thread(monitor_worker_ports, std::ref(bound_ports), std::ref(session));
 
     zmsg *reply = nullptr;
     while (is_running.load()) {
