@@ -1,8 +1,8 @@
-.PHONY: database worker runWorker broker runBroker runClient test testCRDT clean
+.PHONY: database worker runWorker1 runWorker2 broker runBroker runClient test testCRDT clean
 TARGETS = database/cloud/database.db database/local/* src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
 SYSTEM_PACKAGES = $(shell cat system-requirements.txt)
 
-all: clean database worker broker client 
+all: clean database worker broker client
 
 system-requirements:
 	sudo apt-get update
@@ -11,8 +11,11 @@ system-requirements:
 worker: 
 	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -luuid -lsqlite3 -pthread
 
-runWorker:
-	./src/worker/worker
+runWorker1:
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5558" "5601"
+
+runWorker2:
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5559" "5602"
 
 broker: 
 	g++ -std=c++17 src/broker/main.cpp -o src/broker/broker -lzmq

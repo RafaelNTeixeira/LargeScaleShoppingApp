@@ -2,12 +2,9 @@
 #include <deque>
 #include <unordered_set>
 #include <zmq.hpp>
-#include <nlohmann/json.hpp>
 #include "../zmq/zmsg.hpp"
 #include "../zmq/mdp.h"
 #include "majBroker.cpp"
-
-using json = nlohmann::json;
 
 int main(int argc, char *argv []) {
     int verbose = (argc > 1 && strcmp (argv [1], "-v") == 0);

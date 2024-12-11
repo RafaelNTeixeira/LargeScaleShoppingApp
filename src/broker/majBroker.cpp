@@ -1,11 +1,14 @@
 #include "../zmq/zmsg.hpp"
 #include "../zmq/mdp.h"
-
+#include <nlohmann/json.hpp>
 
 #include <map>
 #include <set>
 #include <deque>
 #include <list>
+#include "../server/consistent_hashing.cpp"
+
+using json = nlohmann::json;
 
 static constexpr uint32_t n_heartbeat_liveness = 3;
 static constexpr uint32_t n_heartbeat_interval =  2500;    //  msecs
@@ -51,6 +54,7 @@ public:
             m_worker = new zmq::socket_t(*m_context, ZMQ_ROUTER);
             m_xpub_socket = new zmq::socket_t(*m_context, ZMQ_XPUB);
             m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
+            ch = new ConsistentHashing(1);
     }
 
     //  ---------------------------------------------------------------------
@@ -247,6 +251,14 @@ private:
         delete wrk;
     }
 
+    json convert_ring_to_json(std::map<size_t, std::string> ring) {
+        json json_ring;
+        for (const auto& [key, value] : ring) {
+            json_ring[std::to_string(key)] = value;
+        }
+        return json_ring;
+    }
+
     //  ---------------------------------------------------------------------
     //  Process message sent to us by a worker
     void worker_process (std::string sender, zmsg *msg) {
@@ -259,6 +271,31 @@ private:
 
         if (command.compare (k_mdpw_ready.data()) == 0) {
             std::cout << "Received READY from worker" << std::endl;
+
+            std::string worker_pull_port = (char *) msg->pop_front().c_str();
+
+            std::cout << "worker_pull_port: " << worker_pull_port << std::endl;
+
+            std::map<size_t, std::string> ring = ch->getRing();
+            json json_ring = convert_ring_to_json(ring);
+            std::string json_ring_str = json_ring.dump();
+
+            if (ch->getNumberOfServers() == 0) {
+                std::cout << "Ring not initialised yet" << std::endl;
+                ch->addServer(worker_pull_port);
+
+                json updated_ring = convert_ring_to_json(ch->getRing());
+                std::string updated_ring_str = updated_ring.dump();
+                std::cout << "UPDATED RING: " << updated_ring_str << std::endl;
+
+                worker_send(wrk, k_mdpw_broadcast_ring.data(), updated_ring_str, NULL);
+            } 
+            else {
+                std::cout << "Sending worker authorization to join ring: " << std::endl;
+                worker_send(wrk, k_mdpw_join_ring.data(), json_ring_str, NULL);
+
+            }
+
             if (worker_ready)  { //  Not first command in session
                 worker_delete (wrk, 1);
             }
@@ -342,6 +379,9 @@ private:
 
         //  Stack routing envelope to start of message
         msg->wrap(worker->m_identity.c_str(), "");
+
+        s_console ("I: sending to worker...");
+        msg->dump ();
 
         if (m_verbose) {
             s_console ("I: sending %s to worker",
@@ -540,4 +580,6 @@ private:
     std::map<std::string, worker*> m_workers;    //  Hash of known workers
     std::set<worker*> m_waiting;                 //  List of waiting workers
     std::set<std::string> m_client_senders;      //  List of client ids
+
+    ConsistentHashing* ch;
 };
