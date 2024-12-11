@@ -5,6 +5,7 @@
 #include "../zmq/mdp.h"
 #include "../server/consistent_hashing.cpp"
 #include <nlohmann/json.hpp>
+#include <uuid/uuid.h>
 
 using json = nlohmann::json;
 
@@ -129,6 +130,16 @@ public:
         delete msg;
     }
 
+    static std::string generateUUID() {
+        uuid_t uuid;
+        uuid_generate_random(uuid);
+
+        char uuid_str[37];
+        uuid_unparse(uuid, uuid_str);
+
+        return std::string(uuid_str);
+    }
+
     //  ---------------------------------------------------------------------
     //  Connect or reconnect to broker
     void connect_to_broker () {
@@ -138,7 +149,8 @@ public:
         m_worker = new zmq::socket_t (*m_context, ZMQ_DEALER);
         int linger = 0;
         m_worker->set(zmq::sockopt::linger, linger);
-        s_set_id(*m_worker);
+        std::string worker_id = generateUUID();
+        m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect (m_broker.c_str());
 
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);

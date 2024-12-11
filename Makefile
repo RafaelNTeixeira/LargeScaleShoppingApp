@@ -9,7 +9,7 @@ system-requirements:
 	sudo apt-get install -y $(SYSTEM_PACKAGES)
 
 worker: 
-	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -lsqlite3 -pthread
+	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -luuid -lsqlite3 -pthread
 
 runWorker:
 	./src/worker/worker

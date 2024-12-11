@@ -13,94 +13,83 @@
 
 using json = nlohmann::json;
 
-std::vector<std::string> workers_ports;
-std::mutex ports_mutex;
-std::atomic<bool> is_running(true);
+// std::vector<std::string> workers_ports;
+// std::mutex ports_mutex;
+// std::atomic<bool> is_running(true);
+// ConsistentHashing* ch;
 
-json convert_ring_to_json(std::map<size_t, std::string> ring) {
-    json json_ring;
-    for (const auto& [key, value] : ring) {
-        json_ring[std::to_string(key)] = value;
-    }
-    return json_ring;
-}
+// json convert_ring_to_json(std::map<size_t, std::string> ring) {
+//     json json_ring;
+//     for (const auto& [key, value] : ring) {
+//         json_ring[std::to_string(key)] = value;
+//     }
+//     return json_ring;
+// }
 
 // Method to connect workers PUSH sockets to other workers PULL sockets
-void monitor_worker_ports(std::unordered_set<std::string> &bound_ports, mdwrk &worker) {
-    while (is_running.load()) {
-        {
-            std::lock_guard<std::mutex> lock(ports_mutex); // Lock ports for thread safety
-            for (const auto &port : workers_ports) {
-                std::cout << "Port: " << port << std::endl;
-                if (bound_ports.find(port) == bound_ports.end()) { // If there are no new ports, skip
-                    std::string connect_address = "tcp://localhost:" + port; // Build connect address for PUSH socket
-                    std::cout << "connect_address: " << connect_address << std::endl;
-                    try {
-                        // Check if the worker's own push port is the same as this port
-                        size_t pos = worker.get_worker_pull_bind().find_last_of(':');
-                        std::string worker_pull_port = worker.get_worker_pull_bind().substr(pos + 1);
-                        std::cout << "worker_pull_port: " << worker_pull_port << std::endl;
-                        if (worker_pull_port != port) {
-                            worker.get_worker_push()->connect(connect_address.c_str());
-                            std::cout << "Successfully connected PULL worker to port: " << connect_address << std::endl;
-                            bound_ports.insert(port);
-                            std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // To assure other threads finish the other worker's connections
-                            std::cout << "Entering ring push" << std::endl;
-                            /*
-                            ConsistentHashing ring = worker.getConsitentHashing()->getRing();
-                            json json_ring = convert_ring_to_json(ring);
-                            if(ring.getNumberOfServers() == 0) {
-                                std::cout << "Ring not initialised yet, goint to add myself" << std::endl;
+// void monitor_worker_ports(std::unordered_set<std::string> &bound_ports, mdwrk &worker) {
+//     while (is_running.load()) {
+//         {
+//             std::lock_guard<std::mutex> lock(ports_mutex); // Lock ports for thread safety
+//             for (const auto &port : workers_ports) {
+//                 std::cout << "Port: " << port << std::endl;
+//                 if (bound_ports.find(port) == bound_ports.end()) { // If there are no new ports, skip
+//                     std::string connect_address = "tcp://localhost:" + port; // Build connect address for PUSH socket
+//                     std::cout << "connect_address: " << connect_address << std::endl;
+//                     try {
+//                         // Check if the worker's own push port is the same as this port
+//                         size_t pos = worker.get_worker_pull_bind().find_last_of(':');
+//                         std::string worker_pull_port = worker.get_worker_pull_bind().substr(pos + 1);
+//                         std::cout << "worker_pull_port: " << worker_pull_port << std::endl;
+//                         if (worker_pull_port != port) {
+//                             worker.get_worker_push()->connect(connect_address.c_str());
+//                             std::cout << "Successfully connected PULL worker to port: " << connect_address << std::endl;
+//                             bound_ports.insert(port);
+//                             std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // To assure other threads finish the other worker's connections
+//                             std::cout << "Entering ring push" << std::endl;
+//                             /*
+//                             ConsistentHashing ring = worker.getConsitentHashing()->getRing();
+//                             json json_ring = convert_ring_to_json(ring);
+//                             if(ring.getNumberOfServers() == 0) {
+//                                 std::cout << "Ring not initialised yet, goint to add myself" << std::endl;
                                 
-                            }
-                            worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
-                            */
-                           ConsistentHashing* ch = worker.getConsistentHashing(); 
-                           json json_ring = convert_ring_to_json(ch->getRing());
+//                             }
+//                             worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
+//                             */
+//                             ch = worker.getConsistentHashing(); 
+//                             json json_ring = convert_ring_to_json(ch->getRing());
 
-                            if (ch->getNumberOfServers() == 0) { 
-                                std::cout << "Ring not initialised yet, going to add myself" << std::endl;
-                                ch->addServer(worker_pull_port);
-                                json updated_ring = convert_ring_to_json(ch->getRing());
-                                std::cout << "UPDATED RING: " << updated_ring << std::endl;
-                                worker.send_to_worker(k_mdpw_broadcast_ring.data(), updated_ring, NULL);
-                                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                            }
-                            else {
-                                std:: 
-                                worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
-                            }
+//                             if (ch->getNumberOfServers() == 0) { 
+//                                 std::cout << "Ring not initialised yet, going to add myself" << std::endl;
+//                                 ch->addServer(worker_pull_port);
 
-                            std::cout << "Number of workers in the ring: " << ch->getNumberOfServers() << std::endl;
+//                                 json updated_ring = convert_ring_to_json(ch->getRing());
+//                                 std::cout << "UPDATED RING: " << updated_ring << std::endl;
 
-                        }
-                    } catch (const zmq::error_t &e) {
-                        std::cerr << "Failed to connect PULL worker to port " << connect_address << ": " << e.what() << std::endl;
-                    }
-                }
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Check every 500ms
-    }
-}
+//                                 worker.send_to_worker(k_mdpw_broadcast_ring.data(), updated_ring, NULL);
+//                                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+//                             } 
+//                             else {
+//                                 worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
+//                             }
+//                             std::cout << "Number of workers in the ring: " << ch->getNumberOfServers() << std::endl;
+//                         }
+//                     } catch (const zmq::error_t &e) {
+//                         std::cerr << "Failed to connect PULL worker to port " << connect_address << ": " << e.what() << std::endl;
+//                     }
+//                 }
+//             }
+//         }
+//         std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Check every 500ms
+//     }
+// }
 
-void run_worker(const std::string &broker, const std::string &service, const std::string &worker_pull_port, bool verbose) {
-    {
-        std::lock_guard<std::mutex> lock(ports_mutex);
-        workers_ports.push_back(worker_pull_port);
-    }
-
+void run_worker(const std::string &broker, const std::string &worker_pub_bind, const std::string &worker_pull_port, bool verbose) {
     std::string worker_pull_bind = "tcp://*:" + worker_pull_port; // Create bind address for PULL socket
-    mdwrk session(broker.c_str(), service.c_str(), worker_pull_bind.c_str(), "LIST_MANAGEMENT", verbose);
-
-    // To track connected ports
-    std::unordered_set<std::string> bound_ports;
-
-    // Thread to monitor new workers connections
-    std::thread monitor_thread(monitor_worker_ports, std::ref(bound_ports), std::ref(session));
+    mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), "LIST_MANAGEMENT", verbose);
 
     zmsg *reply = nullptr;
-    while (is_running.load()) {
+    while (true) {
         zmsg *request = session.recv(reply);
         if (!request) {
             break; // Worker interrupted
@@ -113,27 +102,23 @@ void run_worker(const std::string &broker, const std::string &service, const std
         reply = request;
     }
 
-    is_running.store(false);
-    monitor_thread.join();
-
     std::cout << "Worker shutting down." << std::endl;
 }
 
 int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port>" << std::endl;
+        return 1;  // Error: incorrect number of arguments
+    }
+
     bool verbose = (argc > 1 && strcmp(argv[1], "-v") == 0);
 
     std::cout << "Starting workers..." << std::endl;
 
-    // Launch three threads for three independent workers
-    std::thread worker1(run_worker, "tcp://localhost:5555", "tcp://*:5558", "5601", verbose);
-    std::thread worker2(run_worker, "tcp://localhost:5555", "tcp://*:5559", "5602", verbose);
-    //std::thread worker3(run_worker, "tcp://localhost:5555", "tcp://*:5560", "5603", verbose);
+    // Start workers with command-line arguments
+    run_worker(argv[1], argv[2], argv[3], verbose);
 
-    worker1.join();
-    worker2.join();
-    //worker3.join();
-
-    std::cout << "All workers finished." << std::endl;
+    std::cout << "Worker finished." << std::endl;
 
     return 0;
 }

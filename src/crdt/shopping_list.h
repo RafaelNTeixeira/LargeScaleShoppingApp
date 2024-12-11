@@ -160,7 +160,7 @@ void from_json(const nlohmann::json& j, ShoppingList& u) {
     temp.items.base.fromJson(j.at("items").at("context"));
     for (const auto& item : j.at("items").at("map").items()) {
         CausalCounter<int> counter;
-        counter.core.values = item.value();
+        counter.core.values = item.value().get<std::map<std::pair<std::string, long>, int>>();
         temp.items.map[item.key()] = counter;
     }
     u.join(temp);
