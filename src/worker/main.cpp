@@ -17,8 +17,7 @@ std::vector<std::string> workers_ports;
 std::mutex ports_mutex;
 std::atomic<bool> is_running(true);
 
-json convert_ring_to_json(ConsistentHashing ring_) {
-    std::map<size_t, std::string> ring = ring_.getRing();
+json convert_ring_to_json(std::map<size_t, std::string> ring) {
     json json_ring;
     for (const auto& [key, value] : ring) {
         json_ring[std::to_string(key)] = value;
@@ -47,9 +46,33 @@ void monitor_worker_ports(std::unordered_set<std::string> &bound_ports, mdwrk &w
                             bound_ports.insert(port);
                             std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // To assure other threads finish the other worker's connections
                             std::cout << "Entering ring push" << std::endl;
-                            ConsistentHashing ring = worker.getRing();
+                            /*
+                            ConsistentHashing ring = worker.getConsitentHashing()->getRing();
                             json json_ring = convert_ring_to_json(ring);
+                            if(ring.getNumberOfServers() == 0) {
+                                std::cout << "Ring not initialised yet, goint to add myself" << std::endl;
+                                
+                            }
                             worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
+                            */
+                           ConsistentHashing* ch = worker.getConsistentHashing(); 
+                           json json_ring = convert_ring_to_json(ch->getRing());
+
+                            if (ch->getNumberOfServers() == 0) { 
+                                std::cout << "Ring not initialised yet, going to add myself" << std::endl;
+                                ch->addServer(worker_pull_port);
+                                json updated_ring = convert_ring_to_json(ch->getRing());
+                                std::cout << "UPDATED RING: " << updated_ring << std::endl;
+                                worker.send_to_worker(k_mdpw_broadcast_ring.data(), updated_ring, NULL);
+                                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                            }
+                            else {
+                                std:: 
+                                worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
+                            }
+
+                            std::cout << "Number of workers in the ring: " << ch->getNumberOfServers() << std::endl;
+
                         }
                     } catch (const zmq::error_t &e) {
                         std::cerr << "Failed to connect PULL worker to port " << connect_address << ": " << e.what() << std::endl;

@@ -4,8 +4,22 @@
 #include "../zmq/zmsg.hpp"
 #include "../zmq/mdp.h"
 #include "../server/consistent_hashing.cpp"
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
+
+std::map<size_t, std::string> convert_json_to_ring(const ustring& json_str) {
+    std::map<size_t, std::string> result;
+    json j = json::parse(json_str);
+    for (auto& el : j.items()) {
+        size_t key = std::stoull(el.key());  
+        std::string value = el.value();    
+
+        result[key] = value;
+    }
+
+    return result;
+}
 
 //  Reliability parameters
 
@@ -16,9 +30,10 @@ public:
 
    //  ---------------------------------------------------------------------
    //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_service(service), m_verbose(verbose), ring(1) {
+    mdwrk (std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_service(service), m_verbose(verbose) {
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
+        ch = new ConsistentHashing(1);
         s_catch_signals ();
         connect_to_broker ();
     }
@@ -26,6 +41,7 @@ public:
     //  ---------------------------------------------------------------------
     //  Destructor
     virtual ~mdwrk () {
+        delete ch;
         delete m_worker;
         delete m_worker_pub;
         delete m_context;
@@ -272,14 +288,20 @@ public:
                 std::string command =(char*) msg->pop_front ().c_str();
                 std::cout << "command:" << command << std::endl;
                 
-                if (command == k_mdpw_join_ring) {
+                if (command.compare (k_mdpw_join_ring.data()) == 0)  {
                     std::cout << "In rec join ring cmd" << std::endl;
-                    ustring u_newNode = msg->pop_front();
-                    std::string newNode(reinterpret_cast<const char*>(u_newNode.c_str()), u_newNode.size());
-                    std::cout << "Received JOIN_RING from: " << newNode << std::endl;
+                    ch->addServer(m_worker_pull_bind);
+                    std::cout << "Number of workers in the ring: " << ch->getNumberOfServers() << std::endl;
+                } else if (command.compare (k_mdpw_broadcast_ring.data()) == 0) {
+                    std::cout << "Received broacast ring" << std::endl;
+                    msg->dump();
+                    ustring ring_ = msg->pop_front(); 
+                    std::cout << "RING RECV: " << ring_.c_str() << std::endl;
+                    std::map<size_t, std::string> ring = convert_json_to_ring(ring_); 
+                    ch->setRing(ring);
+                    std::cout << "New number of workers in the ring: " << ch->getNumberOfServers() << std::endl;
+                }     
 
-                    ring.addServer(newNode);
-                }
             }
             else
             if (--m_liveness == 0) {
@@ -311,8 +333,8 @@ public:
         return m_worker_pull;
     }
 
-    ConsistentHashing getRing() {
-        return ring;
+    ConsistentHashing* getConsistentHashing() {
+        return ch;
     }
 
 private:
@@ -340,7 +362,7 @@ private:
     // Return address, if any
     std::string m_reply_to;
 
-    ConsistentHashing ring;
+    ConsistentHashing* ch;
 };
 
 #endif

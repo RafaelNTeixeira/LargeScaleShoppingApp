@@ -17,7 +17,7 @@ private:
     int numberOfVirtualNodes;
 
 public:
-    ConsistentHashing(int virtualNodes=3) : numberOfVirtualNodes(virtualNodes) {}
+    ConsistentHashing(int virtualNodes=1) : numberOfVirtualNodes(virtualNodes) {}
      
     int getNumberOfVirtualNodes() const {
         return numberOfVirtualNodes;
@@ -129,6 +129,10 @@ public:
 
     std::map<size_t, std::string> getRing() {
         return ring;
+    }
+
+    void setRing(std::map<size_t, std::string> ring_) {
+        ring = ring_;
     }
 
 }; 
