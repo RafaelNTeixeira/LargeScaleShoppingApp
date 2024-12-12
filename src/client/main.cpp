@@ -348,65 +348,65 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // bool cloud_mode = client.get_cloud_mode();
-        // if (choice != 0) {
-        //     if (choice == 1) {
-        //         // Create an empty Shopping List (DEALER)
-        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
-        //         std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
-        //         if (cloud_mode) {
-        //             zmsg* msg = new zmsg();
-        //             msg->push_front(list_name.c_str());
-        //             msg->push_front(generated_url.c_str());
-        //             client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
-        //             delete msg;
-        //         } else {
-        //             std::cout << "Local mode needs development" << std::endl;
-        //         }
-        //     } else if (choice == 2) {
-        //         // Ask for a Shopping List (DEALER)
-        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
-        //         const char* url_list_msg_parameter = get_list_url.c_str();
-        //         if (cloud_mode) {
-        //             zmsg* msg = new zmsg(url_list_msg_parameter);
-        //             client.send("LIST_MANAGEMENT", "GET_LIST", msg);
-        //         } else {
-        //             std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
-        //         }
-        //     } else if (choice == 3) {
-        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
-        //         if (cloud_mode) {
-        //             zmsg* msg = new zmsg();
-        //             msg->push_front(std::to_string(product_quantity).c_str());
-        //             msg->push_front(product_name.c_str());
-        //             msg->push_front(update_list_list_url.c_str());
-        //             client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
-        //             delete msg;
-        //         } else {
-        //             std::cout << "Local mode needs development" << std::endl;
-        //         }
-        //     }
+        bool cloud_mode = client.get_cloud_mode();
+        if (choice != 0) {
+            if (choice == 1) {
+                // Create an empty Shopping List (DEALER)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg();
+                    msg->push_front(list_name.c_str());
+                    msg->push_front(generated_url.c_str());
+                    client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
+                    delete msg;
+                } else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
+            } else if (choice == 2) {
+                // Ask for a Shopping List (DEALER)
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                const char* url_list_msg_parameter = get_list_url.c_str();
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg(url_list_msg_parameter);
+                    client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                } else {
+                    std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
+                }
+            } else if (choice == 3) {
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                if (cloud_mode) {
+                    zmsg* msg = new zmsg();
+                    msg->push_front(std::to_string(product_quantity).c_str());
+                    msg->push_front(product_name.c_str());
+                    msg->push_front(update_list_list_url.c_str());
+                    client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
+                    delete msg;
+                } else {
+                    std::cout << "Local mode needs development" << std::endl;
+                }
+            }
 
-        //     if (cloud_mode == 1) {
-        //         zmsg* reply = client.recv();
-        //         if (reply) {
-        //             std::cout << "Reply received: " << std::endl;
-        //             reply->dump();
+            if (cloud_mode == 1) {
+                zmsg* reply = client.recv();
+                if (reply) {
+                    std::cout << "Reply received: " << std::endl;
+                    reply->dump();
 
-        //             ustring temp = reply->pop_front();
-        //             if (temp.empty()) {
-        //                 std::cerr << "Error: Received empty reply!" << std::endl;
-        //             } else {
-        //                 std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-        //                 std::cout << "Response from server: " << response << std::endl;
-        //             }
+                    ustring temp = reply->pop_front();
+                    if (temp.empty()) {
+                        std::cerr << "Error: Received empty reply!" << std::endl;
+                    } else {
+                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                        std::cout << "Response from server: " << response << std::endl;
+                    }
 
-        //             delete reply;
-        //         } else {
-        //             std::cout << "No response received from the server." << std::endl;
-        //         }
-        //     }
-        // }
+                    delete reply;
+                } else {
+                    std::cout << "No response received from the server." << std::endl;
+                }
+            }
+        }
     }
 
     // End the other threads
