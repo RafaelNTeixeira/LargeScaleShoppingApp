@@ -1,4 +1,2 @@
 nlohmann-json3-dev
 uuid-dev
-sqlite3 
-libsqlite3-dev

@@ -11,6 +11,8 @@ system-requirements:
 worker: 
 	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -luuid -lsqlite3 -pthread
 
+runWorker:# with arguments from the command line
+	./src/worker/worker $(ARGS)
 runWorker1:
 	mkdir -p database/cloud/1/
 	./src/worker/worker "tcp://localhost:5555" "tcp://*:5558" "5601" "" "database/cloud/1"
