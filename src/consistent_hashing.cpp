@@ -13,11 +13,10 @@ class ConsistentHashing {
 private: 
     std::map<size_t, std::string> ring; // <hash, server_name>
     std::vector<std::string> servers;
-    int numberOfServers = 0;
     int numberOfVirtualNodes;
 
 public:
-    ConsistentHashing(int virtualNodes=3) : numberOfVirtualNodes(virtualNodes) {}
+    ConsistentHashing(int virtualNodes=1) : numberOfVirtualNodes(virtualNodes) {}
      
     int getNumberOfVirtualNodes() const {
         return numberOfVirtualNodes;
@@ -30,7 +29,6 @@ public:
         }
 
         servers.push_back(server);
-        numberOfServers++; 
 
         for(int i = 0; i < numberOfVirtualNodes; i++) {
            size_t hash = generateHash(server + std::to_string(i));
@@ -46,7 +44,6 @@ public:
         }
 
         servers.erase(it);
-        numberOfServers--;
 
         for(int i = 0; i < numberOfVirtualNodes; i++) {
             size_t hash = generateHash(server + std::to_string(i));
@@ -80,8 +77,41 @@ public:
         return it->second;
     }
 
-    int getNumberOfServers() {
-        return numberOfServers; 
+     std::string getNextServer(const std::string &key) {
+        if (ring.empty()) {
+            return "";
+        }
+
+        size_t hash = generateHash(key);
+        auto it = ring.lower_bound(hash);
+        if (it == ring.end()) {
+            it = ring.begin(); 
+        }
+
+        auto nextIt = std::next(it);
+        if (nextIt == ring.end()) {
+            nextIt = ring.begin(); 
+        }
+        return nextIt->second;
+    }
+
+    std::string getPreviousServer(const std::string &key) {
+        if (ring.empty()) {
+            return "";
+        }
+
+        size_t hash = generateHash(key);
+        auto it = ring.lower_bound(hash);
+        if (it == ring.end()) {
+            it = ring.begin(); 
+        }
+
+        if (it == ring.begin()) {
+            it = std::prev(ring.end()); 
+        } else {
+            it = std::prev(it);
+        }
+        return it->second;
     }
 
     void printRing() {
@@ -90,16 +120,39 @@ public:
         }
     }
 
+    std::map<size_t, std::string> getRing() {
+        return ring;
+    }
+
+    void setRing(std::map<size_t, std::string> ring_) {
+        this->ring = ring_;
+    }
+
+    void setServers(std::vector<std::string> servers_) {
+        this->servers = servers_;
+    }
+
+    void updateCH(std::map<size_t, std::string> ring_, std::vector<std::string> servers_) {
+        this->ring = ring_; 
+        this->servers = servers_; 
+    }
+
+    std::vector<std::string> getAllServers() {
+        return this->servers;
+    }
+
 }; 
 
-// int main() {
-//     ConsistentHashing ch(3);
-//     ch.addServer("192.168.1.1:8080");
-//     ch.addServer("192.168.1.2:8080");
-//     ch.addServer("192.168.1.3:8080");
+/*
+int main() {
+    ConsistentHashing ch(3);
+    ch.addServer("192.168.1.1:8080");
+    ch.addServer("192.168.1.2:8080");
+    ch.addServer("192.168.1.3:8080");
 
-//     std::string key = "my_key";
-//     std::cout << "Server for key: " << key << " -> " << ch.getServer(key) << std::endl;
+    std::string key = "my_key";
+    std::cout << "Server for key: " << key << " -> " << ch.getServer(key) << std::endl;
 
-//     return 0;
-// }
+    return 0;
+}
+*/
