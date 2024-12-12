@@ -1,6 +1,7 @@
 #ifndef DATABASE_H
 #define DATABASE_H
 
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <nlohmann/json.hpp>

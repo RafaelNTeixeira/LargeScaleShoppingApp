@@ -3,6 +3,7 @@
 #include <map>
 #include <cstdint>
 #include <functional>
+#include "../zmq/zmsg.hpp"
 
 size_t generateHash(const std::string &key) {
     std::hash<std::string> hasher;
@@ -13,6 +14,7 @@ class ConsistentHashing {
 private: 
     std::map<size_t, std::string> ring; // <hash, server_name>
     std::vector<std::string> servers;
+    std::map<size_t, zmq::socket_t *> push_sockets;
     int numberOfVirtualNodes;
 
 public:
@@ -22,6 +24,40 @@ public:
         return numberOfVirtualNodes;
     }
 
+    std::vector<zmq::socket_t *> getPushSockets() {
+        std::vector<zmq::socket_t *> ring_push_sockets;
+
+        for (auto node : push_sockets) {
+            ring_push_sockets.push_back(node.second);
+        }
+        
+        return ring_push_sockets;
+    }
+
+    void addPushSocket(const size_t& hash, zmq::socket_t* socket) {
+        if(this->getPushSocket(hash) != nullptr) {
+            std::cerr << "Error: Trying to add socket to already known server " << hash << std::endl;
+        }
+        push_sockets[hash] = socket;
+    }
+
+    zmq::socket_t* getPushSocket(const size_t& hash) {
+        if(this->push_sockets.find(hash) == this->push_sockets.end()) {
+            return nullptr;
+        }
+        return this->push_sockets[hash];
+    }
+
+    void addPushSocketViaServer(const std::string& key, zmq::socket_t* socket) {
+        size_t hash = generateHash(key);
+        this->addPushSocket(hash, socket);
+    }
+
+    zmq::socket_t* getPushSocketViaServer(const std::string& key) {
+        size_t hash = generateHash(key);
+        return this->getPushSocket(hash);
+    }
+
     void addServer(const std::string& server) {
         if (std::find(servers.begin(), servers.end(), server) != servers.end()) {
             std::cout << "Server already added.\n";
@@ -29,11 +65,12 @@ public:
         }
 
         servers.push_back(server);
-
-        for(int i = 0; i < numberOfVirtualNodes; i++) {
-           size_t hash = generateHash(server + std::to_string(i));
-            ring[hash] = server + ":" + std::to_string(i); 
-        }
+        size_t hash = generateHash(server);
+        ring[hash] = server;
+        // for(int i = 0; i < numberOfVirtualNodes; i++) {
+        //     size_t hash = generateHash(server + std::to_string(i));
+        //     ring[hash] = server + "." + std::to_string(i); 
+        // }
     }
 
     void removeServer(const std::string& server) {

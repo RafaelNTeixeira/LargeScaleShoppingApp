@@ -41,6 +41,19 @@ std::vector<std::string> convert_json_to_servers(const ustring& json_str) {
     return result;
 }
 
+std::string get_socket_endpoint(zmq::socket_t* socket) {
+    return socket->get(zmq::sockopt::last_endpoint);
+}
+
+std::string replace(std::string i_str, const std::string& from, const std::string& to) {
+    std::string str = i_str;
+    size_t start_pos = str.find(from);
+    if(start_pos == std::string::npos)
+        return str;
+    str.replace(start_pos, from.length(), to);
+    return str;
+}
+
 
 //  Structure of our class
 //  We access these properties only via class methods
@@ -53,6 +66,7 @@ public:
         s_version_assert (4, 0);
         m_context = new zmq::context_t (1);
         ch = new ConsistentHashing(1);
+        this->m_worker_pull_bind_complete = replace(worker_pull_bind, "*", "localhost");
         s_catch_signals ();
         connect_to_broker ();
     }
@@ -186,35 +200,30 @@ public:
         m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect (m_broker.c_str());
         
-        if (m_worker_pub) {
-            delete m_worker_pub;
-        }
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
 
-        if (m_worker_pull) {
-            delete m_worker_pull;
-        }
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
         m_worker_pull->bind(m_worker_pull_bind.c_str());
         std::cout << "PULL socket bound to " << m_worker_pull_bind << std::endl;
 
-         // Joining workers
+        zmq::socket_t *m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+        std::cout << "PUSH socket created" << std::endl;
+
+        // Joining workers
         if (!m_connect_to_worker.empty()) {
             std::cout << "Connected to worker address: " << m_connect_to_worker << std::endl;
 
-            zmq::socket_t *m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
-            std::cout << "PUSH socket created" << std::endl;
-
             m_worker_push->connect(m_connect_to_worker.c_str());
 
-            workers_push_sockets.push_back(m_worker_push); // Save the used worker push sockets
+            // ENVIAR ENDPOINT EM VEZ DE BIND
+            send_to_worker (m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
 
-            send_to_worker (m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind, NULL, NULL);
+            m_worker_push->disconnect(m_connect_to_worker.c_str());
         }
         // First worker
         else {
-            ch->addServer(m_worker_pull_bind);
+            ch->addServer(m_worker_pull_bind_complete);
         }
 
         s_console("I: connecting DEALER to broker at %s...", m_broker.c_str());
@@ -367,13 +376,16 @@ public:
                     zmq::socket_t *worker_push_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
                     worker_push_socket->connect(connect_receive_worker_address.c_str());
 
-                    workers_push_sockets.push_back(worker_push_socket);
-                    
                     std::cout << "Connect to worker: " << connect_receive_worker_address << std::endl;
 
                     ch->addServer(received_worker_pull_address);
+                    ch->addPushSocketViaServer(received_worker_pull_address, worker_push_socket);
 
-                    for (zmq::socket_t* worker_push_socket : workers_push_sockets) {
+                    for (auto& p : ch->getRing()) {
+                        std::cout << "Socket (" << p.first << "): " << p.second << std::endl;
+                    }
+
+                    for (zmq::socket_t* worker_push_socket : ch->getPushSockets()) {
                         send_to_worker (worker_push_socket, k_mdpw_broadcast_ring.data(), m_worker_pull_bind, ch, NULL);
                     }
                 } 
@@ -386,13 +398,26 @@ public:
                     ustring ring_ = msg->pop_front();
 
                     std::cout << "RING RECV: " << ring_.c_str() << std::endl;
-                    std::map<size_t, std::string> ring = convert_json_to_ring(ring_); 
+                    std::map<size_t, std::string> ring = convert_json_to_ring(ring_);
 
                     ustring servers_ = msg->pop_front();
                     std::vector<std::string> servers = convert_json_to_servers(servers_);
 
                     ch->updateCH(ring, servers);
                     std::cout << "New number of workers in the ring: " << ch->getAllServers().size() << std::endl;
+
+                    for (const auto& [hash, address] : ring) {
+
+                        if (ch->getPushSocket(hash) != nullptr){
+                            continue;
+                        }
+
+                        zmq::socket_t *wrk_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+
+                        std::cout << "Connected to address: " << address << std::endl;
+                        wrk_push->connect(address.c_str());
+                        ch->addPushSocketViaServer(address, wrk_push);
+                    }
                 }     
             }
             else
@@ -431,6 +456,7 @@ private:
     const std::string m_broker;
     const std::string m_worker_pub_bind;
     const std::string m_worker_pull_bind;
+    std::string m_worker_pull_bind_complete;
     const std::string m_connect_to_worker;
     const std::string m_service;
     zmq::context_t *m_context;
@@ -438,7 +464,6 @@ private:
     zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
     //zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
-    std::vector<zmq::socket_t*> workers_push_sockets;
     const int m_verbose;         //  Print activity to stdout
     
 
