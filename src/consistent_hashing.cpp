@@ -92,14 +92,14 @@ public:
 
 }; 
 
-int main() {
-    ConsistentHashing ch(3);
-    ch.addServer("192.168.1.1:8080");
-    ch.addServer("192.168.1.2:8080");
-    ch.addServer("192.168.1.3:8080");
+// int main() {
+//     ConsistentHashing ch(3);
+//     ch.addServer("192.168.1.1:8080");
+//     ch.addServer("192.168.1.2:8080");
+//     ch.addServer("192.168.1.3:8080");
 
-    std::string key = "my_key";
-    std::cout << "Server for key: " << key << " -> " << ch.getServer(key) << std::endl;
+//     std::string key = "my_key";
+//     std::cout << "Server for key: " << key << " -> " << ch.getServer(key) << std::endl;
 
-    return 0;
-}
+//     return 0;
+// }
