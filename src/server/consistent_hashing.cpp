@@ -132,7 +132,25 @@ public:
     }
 
     void setRing(std::map<size_t, std::string> ring_) {
-        ring = ring_;
+        this->ring = ring_;
+    }
+
+    void setNumberOfServers(int numberOfServers_) {
+        this->numberOfServers = numberOfServers_;
+    }
+
+    void setServers(std::vector<std::string> servers_) {
+        this->servers = servers_;
+    }
+
+    void updateCH(std::map<size_t, std::string> ring_, std::vector<std::string> servers_, int numberOfServers_) {
+        this->ring = ring_; 
+        this->servers = servers_; 
+        this->numberOfServers = numberOfServers_;
+    }
+
+    std::vector<std::string> getAllServers() {
+        return this->servers;
     }
 
 }; 
