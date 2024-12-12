@@ -32,7 +32,7 @@ public:
 
         for(int i = 0; i < numberOfVirtualNodes; i++) {
            size_t hash = generateHash(server + std::to_string(i));
-            ring[hash] = server + ":" + std::to_string(i); 
+            ring[hash] = server + ":" + std::to_string(i);
         }
     }
 
@@ -140,7 +140,6 @@ public:
     std::vector<std::string> getAllServers() {
         return this->servers;
     }
-
 }; 
 
 /*

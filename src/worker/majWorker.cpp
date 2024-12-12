@@ -101,7 +101,7 @@ public:
     //  ---------------------------------------------------------------------
     //  Send message to worker
     //  If no _msg is provided, creates one internally
-    void send_to_worker(const char *command, const std::string worker_pull_bind, ConsistentHashing* ch, zmsg *_msg) {
+    void send_to_worker(zmq::socket_t* worker_push, const char *command, const std::string worker_pull_bind, ConsistentHashing* ch, zmsg *_msg) {
         zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
 
         // Frame 0: Empty frame
@@ -134,7 +134,10 @@ public:
         }
         std::cout << "Sent to worker: " << std::endl;
         msg->dump();
-        msg->send (*m_worker_push);
+
+        std::cout << "USED SOCKET TO SEND: " << worker_push << std::endl;
+
+        msg->send (*worker_push);
         delete msg;
     }
 
@@ -182,25 +185,32 @@ public:
         std::string worker_id = generateUUID();
         m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect (m_broker.c_str());
-
+        
+        if (m_worker_pub) {
+            delete m_worker_pub;
+        }
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
 
+        if (m_worker_pull) {
+            delete m_worker_pull;
+        }
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
         m_worker_pull->bind(m_worker_pull_bind.c_str());
         std::cout << "PULL socket bound to " << m_worker_pull_bind << std::endl;
 
-        m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
-        std::cout << "PUSH socket created" << std::endl;
-
-        
-
          // Joining workers
         if (!m_connect_to_worker.empty()) {
             std::cout << "Connected to worker address: " << m_connect_to_worker << std::endl;
+
+            zmq::socket_t *m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+            std::cout << "PUSH socket created" << std::endl;
+
             m_worker_push->connect(m_connect_to_worker.c_str());
 
-            send_to_worker (k_mdpw_join_ring.data(), m_worker_pull_bind, NULL, NULL);
+            workers_push_sockets.push_back(m_worker_push); // Save the used worker push sockets
+
+            send_to_worker (m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind, NULL, NULL);
         }
         // First worker
         else {
@@ -353,18 +363,25 @@ public:
                     std::cout << "Received worker port: " << received_worker_port << std::endl;
 
                     std::string connect_receive_worker_address = "tcp://localhost:" + received_worker_port;
-                    m_worker_push->connect(connect_receive_worker_address.c_str());
+
+                    zmq::socket_t *worker_push_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
+                    worker_push_socket->connect(connect_receive_worker_address.c_str());
+
+                    workers_push_sockets.push_back(worker_push_socket);
+                    
                     std::cout << "Connect to worker: " << connect_receive_worker_address << std::endl;
 
                     ch->addServer(received_worker_pull_address);
 
-                    send_to_worker (k_mdpw_broadcast_ring.data(), m_worker_pull_bind, ch, NULL);
+                    for (zmq::socket_t* worker_push_socket : workers_push_sockets) {
+                        send_to_worker (worker_push_socket, k_mdpw_broadcast_ring.data(), m_worker_pull_bind, ch, NULL);
+                    }
                 } 
                 else if (command.compare (k_mdpw_broadcast_ring.data()) == 0) {
                     std::cout << "Received broadcast ring" << std::endl;
                     msg->dump();
-                    std::string this_worker_pull_bind =(char*) msg->pop_front().c_str();
-                    std::cout << "this_worker_pull_bind: " << this_worker_pull_bind << std::endl;
+                    std::string worker_pull_bind =(char*) msg->pop_front().c_str();
+                    std::cout << "worker_pull_bind: " << worker_pull_bind << std::endl;
 
                     ustring ring_ = msg->pop_front();
 
@@ -401,9 +418,6 @@ public:
         return m_worker_pull_bind;
     }
 
-    zmq::socket_t* get_worker_push() {
-        return m_worker_push;
-    }
     zmq::socket_t* get_worker_pull() {
         return m_worker_pull;
     }
@@ -413,7 +427,7 @@ public:
     }
 
 private:
-    static constexpr uint32_t n_heartbeat_liveness = 3; // 3-5 is reasonable
+    static constexpr uint64_t n_heartbeat_liveness = 3;
     const std::string m_broker;
     const std::string m_worker_pub_bind;
     const std::string m_worker_pull_bind;
@@ -422,9 +436,11 @@ private:
     zmq::context_t *m_context;
     zmq::socket_t *m_worker{};  //  Socket to broker
     zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
-    zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
+    //zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
+    std::vector<zmq::socket_t*> workers_push_sockets;
     const int m_verbose;         //  Print activity to stdout
+    
 
     // Heartbeat management
     int64_t m_heartbeat_at;      //  When to send HEARTBEAT
