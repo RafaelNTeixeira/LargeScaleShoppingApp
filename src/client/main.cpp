@@ -358,11 +358,11 @@ int main(int argc, char* argv[]) {
                 std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
-                    msg->push_front(list_name.c_str());
-                    msg->push_front(generated_url.c_str());
                     std::string shoppingListStr = newShoppingListJson.dump();
                     std::cout << "List: " << shoppingListStr << std::endl;
                     msg->push_front(shoppingListStr.c_str());
+                    msg->push_front(list_name.c_str());
+                    msg->push_front(generated_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;
@@ -383,11 +383,12 @@ int main(int argc, char* argv[]) {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
+                    std::string shoppingListStr = currentShoppingListJson.dump();
+
+                    msg->push_front(shoppingListStr.c_str());
                     msg->push_front(std::to_string(product_quantity).c_str());
                     msg->push_front(product_name.c_str());
                     msg->push_front(update_list_list_url.c_str());
-                    std::string shoppingListStr = currentShoppingListJson.dump();
-                    msg->push_front(shoppingListStr.c_str());
                     std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
                     delete msg;

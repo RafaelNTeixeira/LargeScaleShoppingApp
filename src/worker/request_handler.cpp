@@ -62,12 +62,14 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         res.shopping_list = shopping_list;
         res.reply = "get_list";
     } else if (request == "UPDATE_LIST") {
-        std::string url = (char*)msg->pop_front().c_str();
+        std::string product = (char*)msg->pop_front().c_str();
+        std::cout << "Product received: " << product << std::endl;
 
-        std::cout << "List URL received: " << url << std::endl;
+        std::string product_quantity = (char*)msg->pop_front().c_str();
+        std::cout << "Product quantity received: " << product_quantity << std::endl;
 
         json received_shopping_list = msg->pop_front();
-        json stored_shopping_list = db.get(url);
+        json stored_shopping_list = db.get(url_list);
         ShoppingList new_list;
         ShoppingList stored_list;
 
@@ -77,7 +79,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         stored_list.join(new_list);
         to_json(stored_shopping_list, stored_list);
 
-        db.set(url, stored_shopping_list);
+        db.set(url_list, stored_shopping_list);
 
         res.shopping_list = stored_shopping_list;
         res.reply = "update_list";
