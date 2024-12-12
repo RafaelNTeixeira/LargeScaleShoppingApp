@@ -13,7 +13,6 @@ class ConsistentHashing {
 private: 
     std::map<size_t, std::string> ring; // <hash, server_name>
     std::vector<std::string> servers;
-    int numberOfServers = 0;
     int numberOfVirtualNodes;
 
 public:
@@ -30,7 +29,6 @@ public:
         }
 
         servers.push_back(server);
-        numberOfServers++; 
 
         for(int i = 0; i < numberOfVirtualNodes; i++) {
            size_t hash = generateHash(server + std::to_string(i));
@@ -46,7 +44,6 @@ public:
         }
 
         servers.erase(it);
-        numberOfServers--;
 
         for(int i = 0; i < numberOfVirtualNodes; i++) {
             size_t hash = generateHash(server + std::to_string(i));
@@ -117,10 +114,6 @@ public:
         return it->second;
     }
 
-    int getNumberOfServers() {
-        return numberOfServers; 
-    }
-
     void printRing() {
         for(const auto& server : ring) {
             std::cout  << "Hash: " << server.first << " / Server's name: " << server.second << std::endl;
@@ -135,18 +128,13 @@ public:
         this->ring = ring_;
     }
 
-    void setNumberOfServers(int numberOfServers_) {
-        this->numberOfServers = numberOfServers_;
-    }
-
     void setServers(std::vector<std::string> servers_) {
         this->servers = servers_;
     }
 
-    void updateCH(std::map<size_t, std::string> ring_, std::vector<std::string> servers_, int numberOfServers_) {
+    void updateCH(std::map<size_t, std::string> ring_, std::vector<std::string> servers_) {
         this->ring = ring_; 
         this->servers = servers_; 
-        this->numberOfServers = numberOfServers_;
     }
 
     std::vector<std::string> getAllServers() {
