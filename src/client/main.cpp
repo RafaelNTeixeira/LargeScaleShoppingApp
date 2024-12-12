@@ -224,10 +224,10 @@ int main(int argc, char* argv[]) {
     mdcli client(broker_ip, 1);
 
     std::thread update_listener(listenForUpdates, std::ref(client));
-    update_listener.detach();  // Ensures the thread runs independently
+    // update_listener.detach();  // Ensures the thread runs independently
 
     std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
-    update_heartbeat.detach();  // Ensures the thread runs independently
+    // update_heartbeat.detach();  // Ensures the thread runs independently
 
     json request_json;
     int choice;

@@ -30,9 +30,11 @@ client:
 	g++ -std=c++17 src/client/main.cpp -o src/client/client -lzmq -luuid -lsqlite3 -pthread
 
 runClient1:
+	mkdir -p database/local/user1/
 	./src/client/client "tcp://localhost:5556" "database/local/user1/"
 
 runClient2:
+	mkdir -p database/local/user2/
 	./src/client/client "tcp://localhost:5556" "database/local/user2/"
 
 compileTestCRDT: test/crdt/test.cpp src/crdt/*
