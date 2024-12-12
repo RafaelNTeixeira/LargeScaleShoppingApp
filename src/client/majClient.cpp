@@ -6,7 +6,7 @@
 
 //  Structure of our class
 //  We access these properties only via class methods
-//static constexpr uint32_t n_heartbeat_expiry =  2500;    //  msecs
+// static constexpr uint32_t n_heartbeat_expiry =  2500;    //  msecs
 
 class mdcli {
    public:
@@ -46,12 +46,12 @@ class mdcli {
             delete m_client;
         }
         m_client = new zmq::socket_t(*m_context, ZMQ_DEALER);
-        int linger = 0; // Discard unsent messages immediately
+        int linger = 0;  // Discard unsent messages immediately
         m_client->set(zmq::sockopt::linger, linger);
         std::string client_id = generateUUID();
         m_client->set(zmq::sockopt::routing_id, client_id);
         m_client->connect(m_broker.c_str());
-        m_heartbeat_at = s_clock () + m_heartbeat;
+        m_heartbeat_at = s_clock() + m_heartbeat;
         if (m_verbose)
             s_console("I: connecting to broker at %s...", m_broker.c_str());
     }
@@ -62,13 +62,19 @@ class mdcli {
         m_sub_socket->connect("tcp://localhost:5557");
 
         // SUBSCRIBING TO ALL CHANGES MADE TO THE LISTS THAT A CLIENT HAS ACCESS TO
-        // for (client_url : client_url_list) {
-        //     sub_socket->set(zmq::sockopt::subscribe, client_url);
-        // }
+        for (std::string &client_url : client_url_list) {
+            m_sub_socket->set(zmq::sockopt::subscribe, client_url);
+        }
+    }
 
-        m_sub_socket->set(zmq::sockopt::subscribe, "qwer"); // Subscribe to a url_list. qwer is TEMP
-        m_sub_socket->set(zmq::sockopt::subscribe, "zxcv"); // Subscribe to a url_list. zxcv is TEMP
-        std::cout << "Connected to broker pub socket" << std::endl;
+    void subscribe_to_list(std::string list_url) {
+        m_sub_socket->set(zmq::sockopt::subscribe, list_url);
+        client_url_list.push_back(list_url);
+    }
+
+    void unsubscribe_from_list(std::string list_url) {
+        m_sub_socket->set(zmq::sockopt::unsubscribe, list_url);
+        client_url_list.erase(std::remove(client_url_list.begin(), client_url_list.end(), list_url), client_url_list.end());
     }
 
     // Receive update notification via SUB socket
@@ -79,12 +85,12 @@ class mdcli {
         // Loop to process all available messages
         while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
             // Initialize a new zmsg for each complete message
-            zmsg* msg = new zmsg();
-            msg->push_front(static_cast<const char*>(message.data())); // Add the first part
+            zmsg *msg = new zmsg();
+            msg->push_front(static_cast<const char *>(message.data()));  // Add the first part
 
             // Continue receiving other parts if multipart
             while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
-                msg->push_front(static_cast<const char*>(message.data())); // Add each subsequent part
+                msg->push_front(static_cast<const char *>(message.data()));  // Add each subsequent part
             }
 
             // Process the zmsg
@@ -92,15 +98,15 @@ class mdcli {
                 std::cout << "Received active update through SUB socket:" << std::endl;
                 msg->dump();
 
-                std::string url_list = std::string(reinterpret_cast<const char*>(msg->pop_front().c_str()));
+                std::string url_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));
                 std::cout << "url_list: " << url_list << std::endl;
 
                 std::string shopping_list;
 
                 if (msg->parts() > 0) {
-                    shopping_list = std::string(reinterpret_cast<const char*>(msg->pop_front().c_str())); // Extract the shopping list
+                    shopping_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));  // Extract the shopping list
                     std::cout << "Shopping list: " << shopping_list << std::endl;
-                    results.push_back(shopping_list); // Add the shopping list to results
+                    results.push_back(shopping_list);  // Add the shopping list to results
                 } else {
                     std::cerr << "Expected a shopping list part, but none was found!" << std::endl;
                 }
@@ -147,7 +153,7 @@ class mdcli {
         //  Frame 1: "MDPCxy" (six bytes, MDP/Client x.y)
         //  Frame 2: Service Name (printable string) (HEARTBEAT OR LIST_MANAGEMENT)
         //  Frame 3: Request Name (printable string)
-        
+
         request->push_front(sub_request.c_str());
         request->push_front(service.c_str());
         request->push_front(k_mdp_client.data());
@@ -155,7 +161,7 @@ class mdcli {
 
         request->send(*m_client);
         std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
-        //std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;
+        // std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;
 
         return 0;
     }
@@ -173,55 +179,53 @@ class mdcli {
         //  If we got a reply, process it
         if (items[0].revents & ZMQ_POLLIN) {
             zmsg *msg = new zmsg(*m_client);
-            //std::cout << "Client got reply:" << std::endl;
-            //msg->dump();
+            // std::cout << "Client got reply:" << std::endl;
+            // msg->dump();
 
             if (m_verbose) {
-                //s_console("I: received reply:");
-                //msg->dump();
+                // s_console("I: received reply:");
+                // msg->dump();
             }
 
             assert(msg->parts() >= 4);
 
-            assert(msg->pop_front().length() == 0); // empty message
+            assert(msg->pop_front().length() == 0);  // empty message
 
             ustring header = msg->pop_front();
-            //std::cout << "HEADER: " << header.c_str() << std::endl;
-            if (header.compare((unsigned char *)k_mdp_client.data()) == 0){
+            // std::cout << "HEADER: " << header.c_str() << std::endl;
+            if (header.compare((unsigned char *)k_mdp_client.data()) == 0) {
                 ustring service = msg->pop_front();
                 assert(service.compare((unsigned char *)service.c_str()) == 0);
-                //std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
+                // std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
                 if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
-                    //std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                    // std::cout << "Received HEARTBEAT from Broker" << std::endl;
                     n_heartbeat_expiry = s_clock() + 2500;
                     cloud_mode = true;
                 }
             }
-            
 
-            return msg; // Success
+            return msg;  // Success
         }
 
-        if (s_clock () >= m_heartbeat_at) {
-            zmsg* message = new zmsg();  
+        if (s_clock() >= m_heartbeat_at) {
+            zmsg *message = new zmsg();
             int res = send("HEARTBEAT", "", message);
-            //std::cout << "Sending HEARTBEAT to Broker" << std::endl;
+            // std::cout << "Sending HEARTBEAT to Broker" << std::endl;
             m_heartbeat_at += m_heartbeat;
-            //std::cout << "cloud_mode: " << cloud_mode << std::endl;
+            // std::cout << "cloud_mode: " << cloud_mode << std::endl;
         }
 
-        if(s_clock() >= n_heartbeat_expiry){
-            //std::cout << "HEARTBEAT EXPIRED" << std::endl;
+        if (s_clock() >= n_heartbeat_expiry) {
+            // std::cout << "HEARTBEAT EXPIRED" << std::endl;
             cloud_mode = false;
-            //std::cout << "cloud_mode: " << cloud_mode << std::endl;
+            // std::cout << "cloud_mode: " << cloud_mode << std::endl;
         }
 
-        if (s_interrupted){
-            //std::cout << "W: interrupt received, killing client..." << std::endl;
-        } else if (m_verbose){
-            //s_console("W: permanent error, abandoning request");
+        if (s_interrupted) {
+            // std::cout << "W: interrupt received, killing client..." << std::endl;
+        } else if (m_verbose) {
+            // s_console("W: permanent error, abandoning request");
         }
-            
 
         return 0;
     }
@@ -232,12 +236,13 @@ class mdcli {
     zmq::socket_t *m_client{};  //  Socket to client
     zmq::socket_t *m_push_socket{};
     zmq::socket_t *m_sub_socket{};
-    const int m_verbose;        //  Print activity to stdout
-    int64_t m_heartbeat_at;     //  When to send HEARTBEAT
-    int m_timeout{2500};        //  Request timeout
-    int m_heartbeat{2500};      //  Heartbeat delay, msecs
+    const int m_verbose;     //  Print activity to stdout
+    int64_t m_heartbeat_at;  //  When to send HEARTBEAT
+    int m_timeout{2500};     //  Request timeout
+    int m_heartbeat{2500};   //  Heartbeat delay, msecs
     int64_t n_heartbeat_expiry;
-    bool cloud_mode = false; 
+    bool cloud_mode = false;
+    std::vector<std::string> client_url_list;
 };
 
 #endif
