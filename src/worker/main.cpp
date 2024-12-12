@@ -84,9 +84,9 @@ using json = nlohmann::json;
 //     }
 // }
 
-void run_worker(const std::string &broker, const std::string &worker_pub_bind, const std::string &worker_pull_port, bool verbose) {
+void run_worker(const std::string &broker, const std::string &worker_pub_bind, const std::string &worker_pull_port, const std::string &connect_to_worker, bool verbose) {
     std::string worker_pull_bind = "tcp://*:" + worker_pull_port; // Create bind address for PULL socket
-    mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), "LIST_MANAGEMENT", verbose);
+    mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), connect_to_worker, "LIST_MANAGEMENT", verbose);
 
     zmsg *reply = nullptr;
     while (true) {
@@ -106,8 +106,8 @@ void run_worker(const std::string &broker, const std::string &worker_pub_bind, c
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port>" << std::endl;
+    if (argc != 5) {
+        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port> <worker_connect_address>" << std::endl;
         return 1;  // Error: incorrect number of arguments
     }
 
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting workers..." << std::endl;
 
     // Start workers with command-line arguments
-    run_worker(argv[1], argv[2], argv[3], verbose);
+    run_worker(argv[1], argv[2], argv[3], argv[4], verbose);
 
     std::cout << "Worker finished." << std::endl;
 

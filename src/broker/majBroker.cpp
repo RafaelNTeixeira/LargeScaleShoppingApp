@@ -272,30 +272,6 @@ private:
         if (command.compare (k_mdpw_ready.data()) == 0) {
             std::cout << "Received READY from worker" << std::endl;
 
-            std::string worker_pull_port = (char *) msg->pop_front().c_str();
-
-            std::cout << "worker_pull_port: " << worker_pull_port << std::endl;
-
-            std::map<size_t, std::string> ring = ch->getRing();
-            json json_ring = convert_ring_to_json(ring);
-            std::string json_ring_str = json_ring.dump();
-
-            if (ch->getNumberOfServers() == 0) {
-                std::cout << "Ring not initialised yet" << std::endl;
-                ch->addServer(worker_pull_port);
-
-                json updated_ring = convert_ring_to_json(ch->getRing());
-                std::string updated_ring_str = updated_ring.dump();
-                std::cout << "UPDATED RING: " << updated_ring_str << std::endl;
-
-                worker_send(wrk, k_mdpw_broadcast_ring.data(), updated_ring_str, NULL);
-            } 
-            else {
-                std::cout << "Sending worker authorization to join ring: " << std::endl;
-                worker_send(wrk, k_mdpw_join_ring.data(), json_ring_str, NULL);
-
-            }
-
             if (worker_ready)  { //  Not first command in session
                 worker_delete (wrk, 1);
             }

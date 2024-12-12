@@ -12,10 +12,13 @@ worker:
 	g++ -std=c++17 src/worker/main.cpp -o src/worker/worker -lzmq -luuid -lsqlite3 -pthread
 
 runWorker1:
-	./src/worker/worker "tcp://localhost:5555" "tcp://*:5558" "5601"
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5558" "5601" ""
 
 runWorker2:
-	./src/worker/worker "tcp://localhost:5555" "tcp://*:5559" "5602"
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5559" "5602" "tcp://localhost:5601"
+
+runWorker3:
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5560" "5603" "tcp://localhost:5602"
 
 broker: 
 	g++ -std=c++17 src/broker/main.cpp -o src/broker/broker -lzmq
