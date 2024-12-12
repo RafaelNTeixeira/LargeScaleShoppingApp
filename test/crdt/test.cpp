@@ -690,6 +690,16 @@ TEST_F(ShoppingListTest, Json) {
     EXPECT_EQ(test.getItems().map["orange"].core.context.vc["user1"], 3);
 }
 
+TEST_F(ShoppingListTest, JsonTest) {
+    ShoppingList test("userTest", "Test List", "http://test.com");
+    nlohmann::json json;
+
+    to_json(json, test);
+    ShoppingList test2;
+    from_json(json, test2);
+    EXPECT_EQ(test, test2);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

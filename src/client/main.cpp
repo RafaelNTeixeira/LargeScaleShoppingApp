@@ -1,12 +1,14 @@
-#include <sqlite3.h>
 #include <uuid/uuid.h>
+
 #include <atomic>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 #include <zmq.hpp>
+
 #include "../crdt/shopping_list.h"
+#include "../database.h"
 #include "majClient.cpp"
 #include "ui.cpp"
 
@@ -20,91 +22,92 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     return 0;
 }
 
-int executeSQL(sqlite3* db, const char* sql) {
-    char* errMsg = nullptr;
-    int rc = sqlite3_exec(db, sql, callback, 0, &errMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "SQL error: " << errMsg << std::endl;
-        sqlite3_free(errMsg);
-    }
-    return rc;
-}
-
-void saveListToLocal(sqlite3* db, ShoppingList& shoppingList) {
-    std::string sql = "INSERT INTO shopping_lists (url, name) VALUES ('" + shoppingList.getURL() + "', '" + shoppingList.getTitle() + "');";
-    executeSQL(db, sql.c_str());
-    std::cout << "List saved to SQLite database with ID: " << shoppingList.getURL() << std::endl;
-}
-
-json loadListFromLocal(sqlite3* db, const std::string& list_url) {
-    std::string sql = "SELECT * FROM shopping_lists WHERE url = '" + list_url + "';";
-    sqlite3_stmt* stmt;
-    json list_data;
-
-    int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to fetch list: " << sqlite3_errmsg(db) << std::endl;
-        return list_data;
-    }
-
-    rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) {
-        list_data["url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        list_data["name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+void saveListToLocal(Database& db, const ShoppingList& shoppingList) {
+    json databaseShoppingList = db.get(shoppingList.getURL());
+    if (!databaseShoppingList.empty()) {
+        std::cout << "Shopping list already exists in the database. Updating..." << std::endl;
+        ShoppingList databaseList;
+        from_json(databaseShoppingList, databaseList);
+        databaseList.join(shoppingList);
+        json updatedShoppingListJson;
+        to_json(updatedShoppingListJson, databaseList);
+        db.set(shoppingList.getURL(), updatedShoppingListJson);
     } else {
-        std::cerr << "List not found." << std::endl;
+        json shoppingListJson;
+        to_json(shoppingListJson, shoppingList);
+        db.set(shoppingList.getURL(), shoppingListJson);
     }
-
-    sqlite3_finalize(stmt);
-
-    std::string sql_items = "SELECT item_name, acquired_quantity FROM shopping_lists_items WHERE list_url = '" + list_url + "';";
-    rc = sqlite3_prepare_v2(db, sql_items.c_str(), -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to fetch items: " << sqlite3_errmsg(db) << std::endl;
-        return list_data;
-    }
-
-    json items = json::array();
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        json item;
-        item["item_name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
-        item["acquired_quantity"] = sqlite3_column_int(stmt, 1);
-        items.push_back(item);
-    }
-
-    sqlite3_finalize(stmt);
-
-    list_data["items"] = items;
-
-    return list_data;
 }
 
-sqlite3* initializeDatabase() {
-    sqlite3* db;
-    int rc = sqlite3_open("database/local/shopping_lists.db", &db);
+// json loadListFromLocal(sqlite3* db, const std::string& list_url) {
+//     std::string sql = "SELECT * FROM shopping_lists WHERE url = '" + list_url + "';";
+//     sqlite3_stmt* stmt;
+//     json list_data;
 
-    if (rc) {
-        std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
-        return nullptr;
-    }
+//     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+//     if (rc != SQLITE_OK) {
+//         std::cerr << "Failed to fetch list: " << sqlite3_errmsg(db) << std::endl;
+//         return list_data;
+//     }
 
-    const char* createTableSQL1 =
-        "CREATE TABLE IF NOT EXISTS shopping_lists ("
-        "url TEXT PRIMARY KEY, "
-        "name TEXT NOT NULL);";
-    executeSQL(db, createTableSQL1);
+//     rc = sqlite3_step(stmt);
+//     if (rc == SQLITE_ROW) {
+//         list_data["url"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+//         list_data["name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)));
+//     } else {
+//         std::cerr << "List not found." << std::endl;
+//     }
 
-    const char* createTableSQL2 =
-        "CREATE TABLE IF NOT EXISTS shopping_lists_items ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "list_url TEXT NOT NULL, "
-        "item_name TEXT NOT NULL, "
-        "acquired_quantity INTEGER DEFAULT 0, "
-        "FOREIGN KEY(list_url) REFERENCES shopping_lists(list_url));";
-    executeSQL(db, createTableSQL2);
+//     sqlite3_finalize(stmt);
 
-    return db;
-}
+//     std::string sql_items = "SELECT item_name, acquired_quantity FROM shopping_lists_items WHERE list_url = '" + list_url + "';";
+//     rc = sqlite3_prepare_v2(db, sql_items.c_str(), -1, &stmt, nullptr);
+//     if (rc != SQLITE_OK) {
+//         std::cerr << "Failed to fetch items: " << sqlite3_errmsg(db) << std::endl;
+//         return list_data;
+//     }
+
+//     json items = json::array();
+//     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+//         json item;
+//         item["item_name"] = std::string(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+//         item["acquired_quantity"] = sqlite3_column_int(stmt, 1);
+//         items.push_back(item);
+//     }
+
+//     sqlite3_finalize(stmt);
+
+//     list_data["items"] = items;
+
+//     return list_data;
+// }
+
+// sqlite3* initializeDatabase() {
+//     sqlite3* db;
+//     int rc = sqlite3_open("database/local/shopping_lists.db", &db);
+
+//     if (rc) {
+//         std::cerr << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+//         return nullptr;
+//     }
+
+//     const char* createTableSQL1 =
+//         "CREATE TABLE IF NOT EXISTS shopping_lists ("
+//         "url TEXT PRIMARY KEY, "
+//         "name TEXT NOT NULL);";
+//     executeSQL(db, createTableSQL1);
+
+//     const char* createTableSQL2 =
+//         "CREATE TABLE IF NOT EXISTS shopping_lists_items ("
+//         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+//         "list_url TEXT NOT NULL, "
+//         "item_name TEXT NOT NULL, "
+//         "acquired_quantity INTEGER DEFAULT 0, "
+//         "FOREIGN KEY(list_url) REFERENCES shopping_lists(list_url));";
+//     executeSQL(db, createTableSQL2);
+
+//     return db;
+// }
 
 // Function to collect products from the user
 bool addProductsToList(ShoppingList& shoppingList) {
@@ -119,13 +122,55 @@ bool addProductsToList(ShoppingList& shoppingList) {
             break;
         }
 
-        std::cout << "Enter quantity for " << product_name << ": ";
-        std::cin >> quantity;
+        while (true) {
+            std::cout << "Enter quantity for " << product_name << ": ";
+            std::cin >> quantity;
 
-        if (!shoppingList.createItem(product_name, quantity)) {
-            std::cout << "Product already exists in the list." << std::endl;
+            if (quantity <= 0) {
+                std::cout << "Invalid quantity. Please enter a positive number." << std::endl;
+                continue;
+            }
             break;
         }
+
+        if (!shoppingList.createItem(product_name, quantity)) {
+            std::cout << "Product already exists in the list. Updating quantity..." << std::endl;
+            shoppingList.increaseItem(product_name, quantity);
+        }
+        break;
+    }
+
+    return true;
+}
+
+bool buyProductsFromList(ShoppingList& shoppingList) {
+    std::string product_name;
+    int quantity;
+
+    while (true) {
+        std::cout << "Enter product name (or type 'q' to finish): ";
+        std::cin >> product_name;
+        if (product_name == "q") {
+            break;
+        }
+
+        if (!shoppingList.contains(product_name)) {
+            std::cout << "Product not found in the list. Please enter a valid product name." << std::endl;
+            continue;
+        }
+
+        while (true) {
+            std::cout << "Enter quantity to buy for " << product_name << ": ";
+            std::cin >> quantity;
+
+            if (quantity <= 0) {
+                std::cout << "Invalid quantity. Please enter a positive number." << std::endl;
+                continue;
+            }
+            break;
+        }
+        shoppingList.buyItem(product_name, quantity);
+        break;
     }
 
     return true;
@@ -133,7 +178,7 @@ bool addProductsToList(ShoppingList& shoppingList) {
 
 // Function receive shopping list updates from the SUB socket
 void listenForUpdates(mdcli& client) {
-    while (true) {
+    while (s_interrupted == 0) {
         std::vector<std::string> sub_update = client.receive_updates();
         if (!sub_update.empty()) {
             std::cout << "List update notification received:" << std::endl;
@@ -146,32 +191,47 @@ void listenForUpdates(mdcli& client) {
 
 // Function receive heartbeats from the broker
 void listenForHeartBeats(mdcli& client) {
-    while (true) {
+    while (s_interrupted == 0) {
         zmsg* heartbeat = client.recv();
     }
 }
 
-int main() {
-    sqlite3* db = initializeDatabase();
+int main(int argc, char* argv[]) {
+    // usage : ./client <broker_ip/port> <path/to/database>
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <broker_ip/port> <path/to/database>" << std::endl;
+        return 1;
+    }
+
+    std::string broker_ip = argv[1];
+    std::string db_path = argv[2];
+
+    std::cout << "______SHOPPING APPLICATION______" << std::endl;
+    std::cout << "Welcome to the Shopping Application!" << std::endl;
 
     std::cout << "Initialized local db..." << std::endl;
+    Database db = Database();
 
-    if (!db) {
+    try {
+        db.load(db_path);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
 
     s_catch_signals();
 
-    mdcli client("tcp://localhost:5556", 1);
+    mdcli client(broker_ip, 1);
 
     std::thread update_listener(listenForUpdates, std::ref(client));
-    update_listener.detach(); // Ensures the thread runs independently
+    update_listener.detach();  // Ensures the thread runs independently
 
     std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
-    update_heartbeat.detach(); // Ensures the thread runs independently
+    update_heartbeat.detach();  // Ensures the thread runs independently
 
     json request_json;
     int choice;
+    ShoppingList currentShoppingList;
 
     while (s_interrupted == 0) {
         displayMenu();
@@ -181,7 +241,7 @@ int main() {
         std::string list_name = "";
         std::string product_name = "";
         int product_quantity = 0;
-        
+
         while (!(std::cin >> choice)) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -190,12 +250,20 @@ int main() {
 
         switch (choice) {
             case 1: {
-                std::string base_url = "https://myshoppinglistapp.com/list/";
+                std::string base_url = "msla-";
                 std::string list_id = mdcli::generateUUID();
                 std::string full_url = base_url + list_id;
 
                 std::cout << "Give a name to your list: ";
                 std::cin >> list_name;
+
+                ShoppingList newShoppingList{list_id, list_name, full_url};
+                json newShoppingListJson;
+                to_json(newShoppingListJson, newShoppingList);
+                db.set(full_url, newShoppingListJson);
+
+                std::cout << "Shopping list created successfully!" << std::endl;
+                std::cout << "List URL: " << full_url << std::endl;
 
                 break;
             }
@@ -206,18 +274,67 @@ int main() {
                 break;
             }
             case 3: {
-                listClientShoppingLists(); // ALTERAR PARA DAR DISPLAY ÀS SHOPPING LISTS QUE O CLIENTE TEM
+                listClientShoppingLists(db);
+                if (db.keys().empty()) {
+                    break;
+                }
                 std::cout << "Pick shopping list url: ";
                 std::cin >> update_list_list_url;
-                listShoppingListItems(update_list_list_url);
-                std::cout << "Type the product you want to add/edit: ";
-                std::cin >> product_name;
+                if (!db.exists(update_list_list_url)) {
+                    std::cout << "No shopping list found with that URL." << std::endl;
+                    break;
+                }
+                json currentShoppingListJson = db.get(update_list_list_url);
+                if (currentShoppingListJson.empty()) {
+                    std::cerr << "Error: Shopping list not found." << std::endl;
+                    break;
+                }
+                from_json(currentShoppingListJson, currentShoppingList);
+                int update_choice = -1;
+                while (update_choice != 0) {
+                    listShoppingListItems(currentShoppingList);
+                    std::cout << "1. Add products to list" << std::endl;
+                    std::cout << "2. Buy product" << std::endl;
+                    std::cout << "0. Exit" << std::endl;
+                    std::cout << "Enter choice: ";
+                    std::cin >> update_choice;
 
-                std::cout << "Insert the quantity you want to add/subtract." << std::endl;
-                std::cout << "To add, use a positive value." << std::endl;
-                std::cout << "To subtract, use a negative value." << std::endl;
-                std::cout << "Quantity: ";
-                std::cin >> product_quantity;
+                    switch (update_choice) {
+                        case 1: {
+                            addProductsToList(currentShoppingList);
+                            break;
+                        }
+                        case 2: {
+                            buyProductsFromList(currentShoppingList);
+                            break;
+                        }
+                        case 0: {
+                            break;
+                        }
+                        default: {
+                            std::cout << "Invalid choice. Try again." << std::endl;
+                            continue;
+                        }
+                    }
+                }
+
+                saveListToLocal(db, currentShoppingList);
+                break;
+            }
+            case 4: {
+                listClientShoppingLists(db);
+                if (db.keys().empty()) {
+                    break;
+                }
+                std::string delete_list_url;
+                std::cout << "Enter List URL to delete: ";
+                std::cin >> delete_list_url;
+                if (!db.exists(delete_list_url)) {
+                    std::cout << "No shopping list found with that URL." << std::endl;
+                    break;
+                }
+                db.del(delete_list_url);
+                std::cout << "Shopping list deleted successfully!" << std::endl;
                 break;
             }
             case 0: {
@@ -231,70 +348,77 @@ int main() {
             }
         }
 
-        bool cloud_mode = client.get_cloud_mode();
-        if (choice != 0) {
-            if (choice == 1) {
-                // Create an empty Shopping List (DEALER)
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                std::string generated_url = "zxcv"; // TEM QUE SE GERAR UM URL ÚNICO AQUI
-                if (cloud_mode) {
-                    zmsg* msg = new zmsg();
-                    msg->push_front(list_name.c_str());
-                    msg->push_front(generated_url.c_str());
-                    client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
-                    delete msg;
-                }
-                else {
-                    std::cout << "Local mode needs development" << std::endl;
-                }
-            } 
-            else if (choice == 2) {
-                // Ask for a Shopping List (DEALER)
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                const char* url_list_msg_parameter = get_list_url.c_str();
-                if (cloud_mode) {
-                    zmsg* msg = new zmsg(url_list_msg_parameter);
-                    client.send("LIST_MANAGEMENT", "GET_LIST", msg);
-                }
-                else {
-                    std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
-                }
-            }
-            else if (choice == 3) {
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                if (cloud_mode) {
-                    zmsg* msg = new zmsg();
-                    msg->push_front(std::to_string(product_quantity).c_str());
-                    msg->push_front(product_name.c_str());
-                    msg->push_front(update_list_list_url.c_str());
-                    client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
-                    delete msg;
-                }
-                else {
-                    std::cout << "Local mode needs development" << std::endl;
-                }
-            }
+        // bool cloud_mode = client.get_cloud_mode();
+        // if (choice != 0) {
+        //     if (choice == 1) {
+        //         // Create an empty Shopping List (DEALER)
+        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        //         std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
+        //         if (cloud_mode) {
+        //             zmsg* msg = new zmsg();
+        //             msg->push_front(list_name.c_str());
+        //             msg->push_front(generated_url.c_str());
+        //             client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
+        //             delete msg;
+        //         } else {
+        //             std::cout << "Local mode needs development" << std::endl;
+        //         }
+        //     } else if (choice == 2) {
+        //         // Ask for a Shopping List (DEALER)
+        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        //         const char* url_list_msg_parameter = get_list_url.c_str();
+        //         if (cloud_mode) {
+        //             zmsg* msg = new zmsg(url_list_msg_parameter);
+        //             client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+        //         } else {
+        //             std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
+        //         }
+        //     } else if (choice == 3) {
+        //         std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        //         if (cloud_mode) {
+        //             zmsg* msg = new zmsg();
+        //             msg->push_front(std::to_string(product_quantity).c_str());
+        //             msg->push_front(product_name.c_str());
+        //             msg->push_front(update_list_list_url.c_str());
+        //             client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
+        //             delete msg;
+        //         } else {
+        //             std::cout << "Local mode needs development" << std::endl;
+        //         }
+        //     }
 
-            if (cloud_mode == 1) {
-                zmsg* reply = client.recv();
-                if (reply) {
-                    std::cout << "Reply received: " <<  std::endl;
-                    reply->dump();
+        //     if (cloud_mode == 1) {
+        //         zmsg* reply = client.recv();
+        //         if (reply) {
+        //             std::cout << "Reply received: " << std::endl;
+        //             reply->dump();
 
-                    ustring temp = reply->pop_front();
-                    if (temp.empty()) {
-                        std::cerr << "Error: Received empty reply!" << std::endl;
-                    } else {
-                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-                        std::cout << "Response from server: " << response << std::endl;
-                    }
-                    
-                    delete reply;
-                } else {
-                    std::cout << "No response received from the server." << std::endl;
-                }
-            }
-        }
+        //             ustring temp = reply->pop_front();
+        //             if (temp.empty()) {
+        //                 std::cerr << "Error: Received empty reply!" << std::endl;
+        //             } else {
+        //                 std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+        //                 std::cout << "Response from server: " << response << std::endl;
+        //             }
+
+        //             delete reply;
+        //         } else {
+        //             std::cout << "No response received from the server." << std::endl;
+        //         }
+        //     }
+        // }
+    }
+
+    // End the other threads
+    update_listener.join();
+    update_heartbeat.join();
+
+    try {
+        db.save(db_path);
+        std::cout << "Database saved successfully." << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
     }
 
     return 0;
