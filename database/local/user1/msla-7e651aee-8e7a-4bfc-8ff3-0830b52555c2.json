@@ -1,0 +1,24 @@
+{
+    "id": "7e651aee-8e7a-4bfc-8ff3-0830b52555c2",
+    "items": {
+        "context": {
+            "dc": [],
+            "vc": {
+                "7e651aee-8e7a-4bfc-8ff3-0830b52555c2": 2
+            }
+        },
+        "map": {
+            "Banana": [
+                [
+                    [
+                        "7e651aee-8e7a-4bfc-8ff3-0830b52555c2",
+                        2
+                    ],
+                    9
+                ]
+            ]
+        }
+    },
+    "title": "Fruits",
+    "url": "msla-7e651aee-8e7a-4bfc-8ff3-0830b52555c2"
+}

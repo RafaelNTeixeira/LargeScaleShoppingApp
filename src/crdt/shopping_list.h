@@ -123,7 +123,7 @@ class ShoppingList {
     }
 
     bool operator==(const ShoppingList& o) const {
-        return id == o.id && title == o.title && url == o.url && items == o.items;
+        return title == o.title && url == o.url && items == o.items;
     }
 
     bool operator!=(const ShoppingList& o) const {
@@ -145,6 +145,7 @@ class ShoppingList {
 void to_json(nlohmann::json& j, const ShoppingList& u) {
     nlohmann::json items;
     items["context"] = u.items.context.toJson();
+    items["map"] = nlohmann::json::object();
     for (const auto& item : u.items.map) {
         items["map"][item.first] = item.second.core.values;
     }
@@ -158,6 +159,9 @@ void from_json(const nlohmann::json& j, ShoppingList& u) {
 
     ShoppingList temp{u.id, u.title, u.url};
     temp.items.base.fromJson(j.at("items").at("context"));
+    if (j.at("items").at("map").is_null()) {
+        return;
+    }
     for (const auto& item : j.at("items").at("map").items()) {
         CausalCounter<int> counter;
         counter.core.values = item.value().get<std::map<std::pair<std::string, long>, int>>();
