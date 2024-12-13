@@ -29,6 +29,10 @@ class ShoppingList {
         return id;
     }
 
+    void setId(const std::string& id) {
+        this->id = id;
+    }
+
     std::string getTitle() const {
         return title;
     }

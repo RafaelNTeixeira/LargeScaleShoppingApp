@@ -1,20 +1,24 @@
 #ifndef __MDWRKAPI_HPP_INCLUDED__
 #define __MDWRKAPI_HPP_INCLUDED__
 
-#include "../zmq/zmsg.hpp"
-#include "../zmq/mdp.h"
-#include "../server/consistent_hashing.cpp"
-#include <nlohmann/json.hpp>
 #include <uuid/uuid.h>
+
+#include <nlohmann/json.hpp>
+
+#include "../database.h"
+#include "../server/consistent_hashing.cpp"
+#include "../zmq/mdp.h"
+#include "../zmq/zmsg.hpp"
+#include "request_handler.cpp"
 
 using json = nlohmann::json;
 
-std::map<size_t, std::string> convert_json_to_ring(const ustring& json_str) {
+std::map<size_t, std::string> convert_json_to_ring(const ustring &json_str) {
     std::map<size_t, std::string> result;
     json j = json::parse(json_str);
-    for (auto& el : j.items()) {
-        size_t key = std::stoull(el.key());  
-        std::string value = el.value();    
+    for (auto &el : j.items()) {
+        size_t key = std::stoull(el.key());
+        std::string value = el.value();
 
         result[key] = value;
     }
@@ -24,17 +28,17 @@ std::map<size_t, std::string> convert_json_to_ring(const ustring& json_str) {
 
 json convert_ring_to_json(std::map<size_t, std::string> ring) {
     json json_ring;
-    for (const auto& [key, value] : ring) {
+    for (const auto &[key, value] : ring) {
         json_ring[std::to_string(key)] = value;
     }
     return json_ring;
 }
 
-std::vector<std::string> convert_json_to_servers(const ustring& json_str) {
+std::vector<std::string> convert_json_to_servers(const ustring &json_str) {
     std::vector<std::string> result;
 
     json j = json::parse(json_str);
-    for (const auto& el : j) {
+    for (const auto &el : j) {
         result.push_back(el.get<std::string>());
     }
 
@@ -54,26 +58,25 @@ std::string replace(std::string i_str, const std::string& from, const std::strin
     return str;
 }
 
-
 //  Structure of our class
 //  We access these properties only via class methods
 class mdwrk {
-public:
-
-   //  ---------------------------------------------------------------------
-   //  Constructor
-    mdwrk (std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string connect_to_worker, std::string service, int verbose): m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_connect_to_worker(connect_to_worker), m_service(service), m_verbose(verbose) {
-        s_version_assert (4, 0);
-        m_context = new zmq::context_t (1);
+   public:
+    //  ---------------------------------------------------------------------
+    //  Constructor
+    mdwrk(std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string connect_to_worker, std::string service, std::string database_path, int verbose) : m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_connect_to_worker(connect_to_worker), m_service(service), m_verbose(verbose) {
+        s_version_assert(4, 0);
+        m_context = new zmq::context_t(1);
         ch = new ConsistentHashing(1);
+        db.load(database_path);
         this->m_worker_pull_bind_complete = replace(worker_pull_bind, "*", "localhost");
-        s_catch_signals ();
-        connect_to_broker ();
+        s_catch_signals();
+        connect_to_broker();
     }
 
     //  ---------------------------------------------------------------------
     //  Destructor
-    virtual ~mdwrk () {
+    virtual ~mdwrk() {
         delete ch;
         delete m_worker;
         delete m_worker_pub;
@@ -84,7 +87,7 @@ public:
     //  Send message to broker
     //  If no _msg is provided, creates one internally
     void send_to_broker(const char *command, std::string option, zmsg *_msg) {
-        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+        zmsg *msg = _msg ? new zmsg(*_msg) : new zmsg();
 
         // Frame 0: Empty frame
         // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
@@ -95,20 +98,20 @@ public:
 
         //  Stack protocol envelope to start of message
         if (!option.empty()) {
-            msg->push_front (option.c_str());
+            msg->push_front(option.c_str());
         }
-        msg->push_front (command);
-        msg->push_front (k_mdpw_worker.data());
-        msg->push_front ("");
+        msg->push_front(command);
+        msg->push_front(k_mdpw_worker.data());
+        msg->push_front("");
 
         if (m_verbose) {
-            s_console ("I: sending %s to broker",
-                mdps_commands [(int) *command].data());
-            msg->dump ();
+            s_console("I: sending %s to broker",
+                      mdps_commands[(int)*command].data());
+            msg->dump();
         }
         std::cout << "Sent to broker: " << std::endl;
         msg->dump();
-        msg->send (*m_worker);
+        msg->send(*m_worker);
         delete msg;
     }
 
@@ -129,22 +132,22 @@ public:
             std::vector<std::string> servers = ch->getAllServers();
             json servers_json = servers;
             std::string servers_str = servers_json.dump();
-            msg->push_front (servers_str.c_str());
+            msg->push_front(servers_str.c_str());
 
             std::map<size_t, std::string> ring = ch->getRing();
             json ring_json = convert_ring_to_json(ring);
             std::string ring_str = ring_json.dump();
-            msg->push_front (ring_str.c_str());
+            msg->push_front(ring_str.c_str());
         }
-        msg->push_front (worker_pull_bind.c_str());
-        msg->push_front (command);
-        msg->push_front (k_mdpw_worker.data());
-        msg->push_front ("");
+        msg->push_front(worker_pull_bind.c_str());
+        msg->push_front(command);
+        msg->push_front(k_mdpw_worker.data());
+        msg->push_front("");
 
         if (m_verbose) {
-            s_console ("I: sending %s to worker",
-                mdps_commands [(int) *command].data());
-            msg->dump ();
+            s_console("I: sending %s to worker",
+                      mdps_commands[(int)*command].data());
+            msg->dump();
         }
         std::cout << "Sent to worker: " << std::endl;
         msg->dump();
@@ -158,22 +161,24 @@ public:
     //  ---------------------------------------------------------------------
     // Publish message to broker XSUB
     //  If no _msg is provided, creates one internally
-    void publish_to_broker(std::string url_list, std::string shopping_list, zmsg *_msg) {
-        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+    void publish_to_broker(std::string url_list, json shopping_list, zmsg *_msg) {
+        zmsg *msg = _msg ? new zmsg(*_msg) : new zmsg();
 
         // Frame 0: Topic (url of updated list)
         // Frame 1: Updated shopping list
 
-        msg->push_front (shopping_list.c_str());
-        msg->push_front (url_list.c_str());
+        const char *shopping_list_str = shopping_list.dump().c_str();
+
+        msg->push_front(shopping_list_str);
+        msg->push_front(url_list.c_str());
 
         if (m_verbose) {
-            s_console ("I: sending to broker topic", url_list);
-            msg->dump ();
+            s_console("I: sending to broker topic", url_list);
+            msg->dump();
         }
         std::cout << "Publish to broker: " << std::endl;
         msg->dump();
-        msg->send (*m_worker_pub);
+        msg->send(*m_worker_pub);
         delete msg;
     }
 
@@ -189,16 +194,16 @@ public:
 
     //  ---------------------------------------------------------------------
     //  Connect or reconnect to broker
-    void connect_to_broker () {
+    void connect_to_broker() {
         if (m_worker) {
             delete m_worker;
         }
-        m_worker = new zmq::socket_t (*m_context, ZMQ_DEALER);
+        m_worker = new zmq::socket_t(*m_context, ZMQ_DEALER);
         int linger = 0;
         m_worker->set(zmq::sockopt::linger, linger);
         std::string worker_id = generateUUID();
         m_worker->set(zmq::sockopt::routing_id, worker_id);
-        m_worker->connect (m_broker.c_str());
+        m_worker->connect(m_broker.c_str());
         
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
@@ -231,39 +236,39 @@ public:
 
         // Register service with broker
         std::cout << "Sent READY to broker" << std::endl;
-        send_to_broker (k_mdpw_ready.data(), m_service, NULL);
+        send_to_broker(k_mdpw_ready.data(), m_service, NULL);
 
         // If liveness hits zero, queue is considered disconnected
         m_liveness = n_heartbeat_liveness;
-        m_heartbeat_at = s_clock () + m_heartbeat;
+        m_heartbeat_at = s_clock() + m_heartbeat;
     }
 
     //  ---------------------------------------------------------------------
     //  Set heartbeat delay
-    void set_heartbeat (int heartbeat) {
+    void set_heartbeat(int heartbeat) {
         m_heartbeat = heartbeat;
     }
 
     //  ---------------------------------------------------------------------
     //  Set reconnect delay
-    void set_reconnect (int reconnect) {
+    void set_reconnect(int reconnect) {
         m_reconnect = reconnect;
     }
 
     //  ---------------------------------------------------------------------
     //  Send reply, if any, to broker and wait for next request.
-    zmsg * recv (zmsg *&reply_p) {
+    zmsg *recv(zmsg *&reply_p) {
         std::cout << "Entered recv" << std::endl;
         // Format and send the reply if we were provided one
         zmsg *reply = reply_p;
-        assert (reply || !m_expect_reply);
+        assert(reply || !m_expect_reply);
         if (reply) {
             std::cout << "Worker has reply:" << std::endl;
             reply->dump();
-            assert (m_reply_to.size()!=0);
-            reply->wrap (m_reply_to.c_str(), "");
+            assert(m_reply_to.size() != 0);
+            reply->wrap(m_reply_to.c_str(), "");
             m_reply_to = "";
-            send_to_broker (k_mdpw_reply.data(), "", reply);
+            send_to_broker(k_mdpw_reply.data(), "", reply);
             delete reply_p;
             reply_p = 0;
         }
@@ -271,102 +276,98 @@ public:
 
         while (!s_interrupted) {
             zmq::pollitem_t items[] = {
-                { *m_worker, 0, ZMQ_POLLIN, 0 } , 
-                { *m_worker_pull, 0, ZMQ_POLLIN, 0 }
-            };
-            zmq::poll (items, 2, std::chrono::milliseconds(m_heartbeat));
+                {*m_worker, 0, ZMQ_POLLIN, 0},
+                {*m_worker_pull, 0, ZMQ_POLLIN, 0}};
+            zmq::poll(items, 2, std::chrono::milliseconds(m_heartbeat));
 
             if (items[0].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker);
                 std::cout << "Received message from broker:" << std::endl;
                 msg->dump();
                 if (m_verbose) {
-                    s_console ("I: received message from broker:");
-                    msg->dump ();
+                    s_console("I: received message from broker:");
+                    msg->dump();
                 }
                 m_liveness = n_heartbeat_liveness;
 
-                assert (msg->parts () >= 3);
+                assert(msg->parts() >= 3);
 
-                ustring empty = msg->pop_front ();
-                std::string empty_str = (char*) empty.c_str();
+                ustring empty = msg->pop_front();
+                std::string empty_str = (char *)empty.c_str();
                 std::cout << "empty:" << empty_str << std::endl;
 
-                assert (empty.compare((unsigned char *)"") == 0);
-                //assert (strcmp (empty, "") == 0);
-                //free (empty);
+                assert(empty.compare((unsigned char *)"") == 0);
+                // assert (strcmp (empty, "") == 0);
+                // free (empty);
 
-                ustring header = msg->pop_front ();
-                std::string header_str = (char*) header.c_str();
+                ustring header = msg->pop_front();
+                std::string header_str = (char *)header.c_str();
                 std::cout << "header:" << header_str << std::endl;
-                assert (header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
-                //free (header);
+                assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
+                // free (header);
 
-                std::string command =(char*) msg->pop_front ().c_str();
+                std::string command = (char *)msg->pop_front().c_str();
                 std::cout << "command:" << command << std::endl;
-                if (command.compare (k_mdpw_request.data()) == 0) {
+                if (command.compare(k_mdpw_request.data()) == 0) {
                     std::cout << "Reply to:" << std::endl;
                     msg->dump();
-                    m_reply_to = msg->unwrap ();
+                    m_reply_to = msg->unwrap();
 
                     ustring request_type = msg->pop_front();
-                    std::string request_type_str = (char*) request_type.c_str();
+                    std::string request_type_str = (char *)request_type.c_str();
                     std::cout << "request_type received: " << request_type_str << std::endl;
 
                     ustring url_list = msg->pop_front();
-                    std::string url_list_str = (char*) url_list.c_str();
+                    std::string url_list_str = (char *)url_list.c_str();
                     std::cout << "url_list received: " << url_list_str << std::endl;
 
-                    Response res = handleRequest(url_list_str, request_type_str, msg);
-                    
+                    Response res = handleRequest(url_list_str, request_type_str, msg, db);
+
                     publish_to_broker(url_list_str, res.shopping_list, NULL);
 
-                    return new zmsg(res.reply.c_str());     //  We have a request to process
-                }
-                else if (command.compare (k_mdpw_heartbeat.data()) == 0) {
+                    return new zmsg(res.reply.c_str());  //  We have a request to process
+                } else if (command.compare(k_mdpw_heartbeat.data()) == 0) {
                     // Do nothing for heartbeats
-                }
-                else if (command.compare (k_mdpw_disconnect.data()) == 0) {
-                    connect_to_broker ();
-                }
-                else {
-                    s_console ("E: invalid input message (%d)",
-                          (int) *(command.c_str()));
-                    msg->dump ();
+                } else if (command.compare(k_mdpw_disconnect.data()) == 0) {
+                    connect_to_broker();
+                } else {
+                    s_console("E: invalid input message (%d)",
+                              (int)*(command.c_str()));
+                    msg->dump();
                 }
                 delete msg;
-            } 
+            }
             if (items[1].revents & ZMQ_POLLIN) {
                 zmsg *msg = new zmsg(*m_worker_pull);
                 std::cout << "Received message from worker:" << std::endl;
                 msg->dump();
                 if (m_verbose) {
-                    s_console ("I: received message from worker:");
-                    msg->dump ();
+                    s_console("I: received message from worker:");
+                    msg->dump();
                 }
-                assert (msg->parts () >= 3);
+                assert(msg->parts() >= 3);
 
-                ustring empty = msg->pop_front ();
-                std::string empty_str = (char*) empty.c_str();
+                ustring empty = msg->pop_front();
+                std::string empty_str = (char *)empty.c_str();
                 std::cout << "empty:" << empty_str << std::endl;
 
-                assert (empty.compare((unsigned char *)"") == 0);
-                //assert (strcmp (empty, "") == 0);
-                //free (empty);
+                assert(empty.compare((unsigned char *)"") == 0);
+                // assert (strcmp (empty, "") == 0);
+                // free (empty);
 
-                ustring header = msg->pop_front ();
-                std::string header_str = (char*) header.c_str();
+                ustring header = msg->pop_front();
+                std::string header_str = (char *)header.c_str();
                 std::cout << "header:" << header_str << std::endl;
-                assert (header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
-                //free (header);
+                assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
+                // free (header);
 
-                std::string command =(char*) msg->pop_front ().c_str();
+                std::string command = (char *)msg->pop_front().c_str();
                 std::cout << "command:" << command << std::endl;
-                
-                if (command.compare (k_mdpw_join_ring.data()) == 0) {
+
+                if (command.compare(k_mdpw_join_ring.data()) == 0) {
                     std::cout << "In rec join ring cmd" << std::endl;
 
-                    std::string received_worker_pull_address =(char*) msg->pop_front().c_str();
+                    std::string received_worker_pull_address = (char *)msg->pop_front().c_str();
                     size_t pos = received_worker_pull_address.find_last_of(':');
                     std::string received_worker_port = received_worker_pull_address.substr(pos + 1);
                     std::cout << "Received worker port: " << received_worker_port << std::endl;
@@ -408,7 +409,7 @@ public:
 
                     for (const auto& [hash, address] : ring) {
 
-                        if (ch->getPushSocket(hash) != nullptr){
+                        if (address == this->m_worker_pull_bind_complete || ch->getPushSocket(hash) != nullptr){
                             continue;
                         }
 
@@ -425,17 +426,21 @@ public:
                 if (m_verbose) {
                     s_console ("W: disconnected from broker - retrying...");
                 }
-                s_sleep (m_reconnect);
-                connect_to_broker ();
+            } else if (--m_liveness == 0) {
+                if (m_verbose) {
+                    s_console("W: disconnected from broker - retrying...");
+                }
+                s_sleep(m_reconnect);
+                connect_to_broker();
             }
             //  Send HEARTBEAT if it's time
-            if (s_clock () >= m_heartbeat_at) {
-                send_to_broker (k_mdpw_heartbeat.data(), "", NULL);
+            if (s_clock() >= m_heartbeat_at) {
+                send_to_broker(k_mdpw_heartbeat.data(), "", NULL);
                 m_heartbeat_at += m_heartbeat;
             }
         }
         if (s_interrupted)
-            printf ("W: interrupt received, killing worker...\n");
+            printf("W: interrupt received, killing worker...\n");
         return NULL;
     }
 
@@ -447,7 +452,7 @@ public:
         return m_worker_pull;
     }
 
-    ConsistentHashing* getConsistentHashing() {
+    ConsistentHashing *getConsistentHashing() {
         return ch;
     }
 
@@ -465,13 +470,13 @@ private:
     //zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
     const int m_verbose;         //  Print activity to stdout
+    Database db;
     
-
     // Heartbeat management
-    int64_t m_heartbeat_at;      //  When to send HEARTBEAT
-    size_t m_liveness;           //  How many attempts left
-    int m_heartbeat{2500};       //  Heartbeat delay, msecs
-    int m_reconnect{2500};       //  Reconnect delay, msecs
+    int64_t m_heartbeat_at;  //  When to send HEARTBEAT
+    size_t m_liveness;       //  How many attempts left
+    int m_heartbeat{2500};   //  Heartbeat delay, msecs
+    int m_reconnect{2500};   //  Reconnect delay, msecs
 
     // Internal state
     bool m_expect_reply{false};  //  Zero only at start
@@ -479,7 +484,7 @@ private:
     // Return address, if any
     std::string m_reply_to;
 
-    ConsistentHashing* ch;
+    ConsistentHashing *ch;
 };
 
 #endif

@@ -1,15 +1,16 @@
+#include <atomic>
 #include <iostream>
-#include <vector>
+#include <memory>
+#include <mutex>
+#include <nlohmann/json.hpp>
 #include <thread>
 #include <unordered_set>
-#include <mutex>
-#include <atomic>
-#include <memory>
-#include "../zmq/zmsg.hpp"
+#include <vector>
+
 #include "../zmq/mdp.h"
-#include "request_handler.cpp"
-#include <nlohmann/json.hpp>
+#include "../zmq/zmsg.hpp"
 #include "majWorker.cpp"
+#include "request_handler.cpp"
 
 using json = nlohmann::json;
 
@@ -52,14 +53,14 @@ using json = nlohmann::json;
 //                             json json_ring = convert_ring_to_json(ring);
 //                             if(ring.getNumberOfServers() == 0) {
 //                                 std::cout << "Ring not initialised yet, goint to add myself" << std::endl;
-                                
+
 //                             }
 //                             worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
 //                             */
-//                             ch = worker.getConsistentHashing(); 
+//                             ch = worker.getConsistentHashing();
 //                             json json_ring = convert_ring_to_json(ch->getRing());
 
-//                             if (ch->getNumberOfServers() == 0) { 
+//                             if (ch->getNumberOfServers() == 0) {
 //                                 std::cout << "Ring not initialised yet, going to add myself" << std::endl;
 //                                 ch->addServer(worker_pull_port);
 
@@ -68,7 +69,7 @@ using json = nlohmann::json;
 
 //                                 worker.send_to_worker(k_mdpw_broadcast_ring.data(), updated_ring, NULL);
 //                                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//                             } 
+//                             }
 //                             else {
 //                                 worker.send_to_worker(k_mdpw_join_ring.data(), json_ring, NULL);
 //                             }
@@ -84,14 +85,14 @@ using json = nlohmann::json;
 //     }
 // }
 
-void run_worker(const std::string &broker, const std::string &worker_pub_bind, const std::string &worker_pull_bind, const std::string &connect_to_worker, bool verbose) {
-    mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), connect_to_worker, "LIST_MANAGEMENT", verbose);
+void run_worker(const std::string &broker, const std::string &worker_pub_bind, const std::string &worker_pull_bind, const std::string &connect_to_worker, const std::string &database_path, bool verbose) {
+    mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), connect_to_worker, "LIST_MANAGEMENT", database_path, verbose);
 
     zmsg *reply = nullptr;
     while (true) {
         zmsg *request = session.recv(reply);
         if (!request) {
-            break; // Worker interrupted
+            break;  // Worker interrupted
         }
 
         std::cout << "Worker got request:" << std::endl;
@@ -105,8 +106,8 @@ void run_worker(const std::string &broker, const std::string &worker_pub_bind, c
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port> <worker_connect_address>" << std::endl;
+    if (argc != 6) {
+        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port> <worker_connect_address> <database_path>" << std::endl;
         return 1;  // Error: incorrect number of arguments
     }
 
@@ -115,7 +116,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting workers..." << std::endl;
     std::cout << argv[1] << argv[2] << argv[3] << argv[4] << std::endl;
     // Start workers with command-line arguments
-    run_worker(argv[1], argv[2], argv[3], argv[4], verbose);
+    run_worker(argv[1], argv[2], argv[3], argv[4], argv[5], verbose);
 
     std::cout << "Worker finished." << std::endl;
 
