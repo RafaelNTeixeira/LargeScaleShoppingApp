@@ -179,6 +179,8 @@ class mdwrk {
             s_console("I: sending to broker topic", url_list);
             msg->dump();
         }
+        std::cout << "Shopping list to publish: " << std::endl;
+        std::cout << shopping_list_str << std::endl;
         std::cout << "Publish to broker: " << std::endl;
         msg->dump();
         msg->send(*m_worker_pub);

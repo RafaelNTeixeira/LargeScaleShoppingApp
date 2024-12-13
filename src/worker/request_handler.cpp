@@ -12,7 +12,7 @@ using json = nlohmann::json;
 
 struct Response {
     std::string reply;
-    json shopping_list;
+    std::string shopping_list;
 };
 
 json concatenateResponses(const json& response_json1, const json& response_json2) {
@@ -37,6 +37,10 @@ json getJsonFromUString(const zmsg::ustring& ustr) {
     return json::parse((char*)ustr.c_str());
 }
 
+std::string getStringFromJson(const json& j) {
+    return j.dump();
+}
+
 Response handleRequest(std::string url_list, std::string request, zmsg* msg, Database& db) {
     Response res;
 
@@ -59,13 +63,13 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
 
         db.set(new_list.getURL(), shopping_list);
 
-        res.shopping_list = shopping_list;
+        res.shopping_list = getStringFromJson(shopping_list);
         res.reply = "create_list";
     } else if (request == "GET_LIST") {
         std::cout << "Got url for GET_LIST: " << url_list << std::endl;
         json shopping_list = db.get(url_list);
 
-        res.shopping_list = shopping_list;
+        res.shopping_list = getStringFromJson(shopping_list);
         res.reply = "get_list";
     } else if (request == "UPDATE_LIST") {
         zmsg::ustring received_shopping_list_str = msg->pop_front();
@@ -82,7 +86,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
 
         db.set(url_list, stored_shopping_list);
 
-        res.shopping_list = stored_shopping_list;
+        res.shopping_list = getStringFromJson(stored_shopping_list);
         res.reply = "update_list";
     } else {
         res.reply = "unknown request";
