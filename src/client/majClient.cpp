@@ -159,6 +159,8 @@ class mdcli {
         request->push_front(k_mdp_client.data());
         request->push_front("");
 
+        request->dump();
+
         request->send(*m_client);
         std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
         // std::cout << "Sent request through DEALER socket: " << endpoint << std::endl;

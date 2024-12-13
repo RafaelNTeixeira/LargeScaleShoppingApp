@@ -116,13 +116,19 @@ class mdwrk {
         std::cout << "pushed url list str: " << url_list_str << std::endl;
         msg->push_front(request_type_str.c_str());
         std::cout << "pushed url req type" << std::endl;
+
+        msg->push_front("");
  
         std::cout << "finished url hashing" << std::endl;
+
+        msg->dump();
 
         return url_list_hash;
     }
 
     zmsg* handle_request(zmsg* msg, Database& db) {
+        ustring empty = msg->pop_front();
+        
         ustring request_type = msg->pop_front();
         std::string request_type_str = (char*)request_type.c_str();
         std::cout << "request_type received: " << request_type_str << std::endl;
@@ -130,6 +136,8 @@ class mdwrk {
         ustring url_list = msg->pop_front();
         std::string url_list_str = (char*)url_list.c_str();
         std::cout << "url_list received: " << url_list_str << std::endl;
+
+        msg->dump();
 
         Response res = handleRequest(url_list_str, request_type_str, msg, db);
 
@@ -184,6 +192,7 @@ class mdwrk {
         // Frame 5: Ring (Might be empty)
 
         if (ch != NULL) {
+            std::cout << "ENTERED ch" << std::endl;
             std::vector<std::string> servers = ch->getAllServers();
             json servers_json = servers;
             std::string servers_str = servers_json.dump();
@@ -194,7 +203,9 @@ class mdwrk {
             std::string ring_str = ring_json.dump();
             msg->push_front(ring_str.c_str());
         }
-        msg->push_front(worker_pull_bind.c_str());
+        if (!worker_pull_bind.empty()) {
+            msg->push_front(worker_pull_bind.c_str());
+        }
         msg->push_front(command);
         msg->push_front(k_mdpw_worker.data());
         msg->push_front("");
@@ -205,7 +216,7 @@ class mdwrk {
             msg->dump();
         }
         std::cout << "Sent to worker: " << std::endl;
-        // msg->dump();
+        msg->dump();
 
         std::cout << "USED SOCKET TO SEND: " << worker_push << std::endl;
 
@@ -376,7 +387,9 @@ class mdwrk {
 
                     std::cout << "Going to start sending work" << std::endl;
 
-                    if (target_worker_pull == m_worker_pull_bind) {
+                    std::cout << "Current worker pull bind: " << m_worker_pull_bind_complete << std::endl;
+
+                    if (target_worker_pull == m_worker_pull_bind_complete) {
                         std::cout << "Target worker is the current worker." << std::endl;
                         zmsg* response_msg = handle_request(msg, db);
                         return response_msg;
@@ -435,7 +448,7 @@ class mdwrk {
                 assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
                 // free (header);
 
-                std::string command = (char *)msg->pop_front().c_str();
+                std::string command = (char*) msg->pop_front().c_str();
                 std::cout << "command:" << command << std::endl;
 
                 if (command.compare(k_mdpw_join_ring.data()) == 0) {
@@ -465,7 +478,7 @@ class mdwrk {
                     }
                 } 
                 else if (command.compare (k_mdpw_broadcast_ring.data()) == 0) {
-                    std::cout << "Received broadcast ring" << std::endl;
+                    std::cout << "Received broadcast ring" << command << std::endl;
                     msg->dump();
                     std::string worker_pull_bind =(char*) msg->pop_front().c_str();
                     std::cout << "worker_pull_bind: " << worker_pull_bind << std::endl;
@@ -493,12 +506,12 @@ class mdwrk {
                         wrk_push->connect(address.c_str());
                         ch->addPushSocketViaServer(address, wrk_push);
                     }
-                }     
+                }   
                 else if (command.compare (k_mdpw_recv_work.data()) == 0) {
                     std::cout << "Received work to process." << std::endl;
                     zmsg* response_msg = handle_request(msg, db);
                     return response_msg;
-                }
+                }  
             }
             else
             if (--m_liveness == 0) {
