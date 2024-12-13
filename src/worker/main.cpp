@@ -12,6 +12,7 @@
 #include "majWorker.cpp"
 #include "request_handler.cpp"
 
+
 using json = nlohmann::json;
 
 // std::vector<std::string> workers_ports;
@@ -89,7 +90,7 @@ void run_worker(const std::string &broker, const std::string &worker_pub_bind, c
     mdwrk session(broker.c_str(), worker_pub_bind.c_str(), worker_pull_bind.c_str(), connect_to_worker, "LIST_MANAGEMENT", database_path, verbose);
 
     zmsg *reply = nullptr;
-    while (true) {
+    while (s_interrupted == 0) {
         zmsg *request = session.recv(reply);
         if (!request) {
             break;  // Worker interrupted
@@ -101,6 +102,8 @@ void run_worker(const std::string &broker, const std::string &worker_pub_bind, c
         // Process the request (simple echo here)
         reply = request;
     }
+
+    session.getDatabase().save(database_path);
 
     std::cout << "Worker shutting down." << std::endl;
 }

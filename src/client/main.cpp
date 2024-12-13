@@ -239,8 +239,6 @@ int main(int argc, char* argv[]) {
         std::string get_list_url = "";
         std::string update_list_list_url = "";
         std::string list_name = "";
-        std::string product_name = "";
-        int product_quantity = 0;
 
         json newShoppingListJson;
         json currentShoppingListJson;
@@ -386,8 +384,6 @@ int main(int argc, char* argv[]) {
                     std::string shoppingListStr = currentShoppingListJson.dump();
 
                     msg->push_front(shoppingListStr.c_str());
-                    msg->push_front(std::to_string(product_quantity).c_str());
-                    msg->push_front(product_name.c_str());
                     msg->push_front(update_list_list_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);

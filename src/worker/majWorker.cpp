@@ -45,14 +45,14 @@ std::vector<std::string> convert_json_to_servers(const ustring &json_str) {
     return result;
 }
 
-std::string get_socket_endpoint(zmq::socket_t* socket) {
+std::string get_socket_endpoint(zmq::socket_t *socket) {
     return socket->get(zmq::sockopt::last_endpoint);
 }
 
-std::string replace(std::string i_str, const std::string& from, const std::string& to) {
+std::string replace(std::string i_str, const std::string &from, const std::string &to) {
     std::string str = i_str;
     size_t start_pos = str.find(from);
-    if(start_pos == std::string::npos)
+    if (start_pos == std::string::npos)
         return str;
     str.replace(start_pos, from.length(), to);
     return str;
@@ -77,10 +77,13 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     //  Destructor
     virtual ~mdwrk() {
+        for (auto &push_socket : ch->getPushSockets()) {
+            delete push_socket;
+        }
         delete ch;
         delete m_worker;
+        delete m_worker_pull;
         delete m_worker_pub;
-        delete m_context;
     }
 
     //  ---------------------------------------------------------------------
@@ -118,8 +121,8 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     //  Send message to worker
     //  If no _msg is provided, creates one internally
-    void send_to_worker(zmq::socket_t* worker_push, const char *command, const std::string worker_pull_bind, ConsistentHashing* ch, zmsg *_msg) {
-        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+    void send_to_worker(zmq::socket_t *worker_push, const char *command, const std::string worker_pull_bind, ConsistentHashing *ch, zmsg *_msg) {
+        zmsg *msg = _msg ? new zmsg(*_msg) : new zmsg();
 
         // Frame 0: Empty frame
         // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
@@ -154,7 +157,7 @@ class mdwrk {
 
         std::cout << "USED SOCKET TO SEND: " << worker_push << std::endl;
 
-        msg->send (*worker_push);
+        msg->send(*worker_push);
         delete msg;
     }
 
@@ -204,15 +207,18 @@ class mdwrk {
         std::string worker_id = generateUUID();
         m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect(m_broker.c_str());
-        
+
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
+        m_worker_pub->set(zmq::sockopt::linger, 0);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
 
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
+        m_worker_pull->set(zmq::sockopt::linger, 0);
         m_worker_pull->bind(m_worker_pull_bind.c_str());
         std::cout << "PULL socket bound to " << m_worker_pull_bind << std::endl;
 
         zmq::socket_t *m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+        m_worker_push->set(zmq::sockopt::linger, 0);
         std::cout << "PUSH socket created" << std::endl;
 
         // Joining workers
@@ -221,10 +227,10 @@ class mdwrk {
 
             m_worker_push->connect(m_connect_to_worker.c_str());
 
-            // ENVIAR ENDPOINT EM VEZ DE BIND
-            send_to_worker (m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
+            send_to_worker(m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
 
             m_worker_push->disconnect(m_connect_to_worker.c_str());
+            delete m_worker_push;
         }
         // First worker
         else {
@@ -275,172 +281,180 @@ class mdwrk {
         m_expect_reply = true;
 
         while (!s_interrupted) {
-            zmq::pollitem_t items[] = {
-                {*m_worker, 0, ZMQ_POLLIN, 0},
-                {*m_worker_pull, 0, ZMQ_POLLIN, 0}};
-            zmq::poll(items, 2, std::chrono::milliseconds(m_heartbeat));
+            try {
+                zmq::pollitem_t items[] = {
+                    {*m_worker, 0, ZMQ_POLLIN, 0},
+                    {*m_worker_pull, 0, ZMQ_POLLIN, 0}};
+                zmq::poll(items, 2, std::chrono::milliseconds(m_heartbeat));
 
-            if (items[0].revents & ZMQ_POLLIN) {
-                zmsg *msg = new zmsg(*m_worker);
-                std::cout << "Received message from broker:" << std::endl;
-                msg->dump();
-                if (m_verbose) {
-                    s_console("I: received message from broker:");
+                if (items[0].revents & ZMQ_POLLIN) {
+                    zmsg *msg = new zmsg(*m_worker);
+                    std::cout << "Received message from broker:" << std::endl;
                     msg->dump();
-                }
-                m_liveness = n_heartbeat_liveness;
-
-                assert(msg->parts() >= 3);
-
-                ustring empty = msg->pop_front();
-                std::string empty_str = (char *)empty.c_str();
-                std::cout << "empty:" << empty_str << std::endl;
-
-                assert(empty.compare((unsigned char *)"") == 0);
-                // assert (strcmp (empty, "") == 0);
-                // free (empty);
-
-                ustring header = msg->pop_front();
-                std::string header_str = (char *)header.c_str();
-                std::cout << "header:" << header_str << std::endl;
-                assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
-                // free (header);
-
-                std::string command = (char *)msg->pop_front().c_str();
-                std::cout << "command:" << command << std::endl;
-                if (command.compare(k_mdpw_request.data()) == 0) {
-                    std::cout << "Reply to:" << std::endl;
-                    msg->dump();
-                    m_reply_to = msg->unwrap();
-
-                    ustring request_type = msg->pop_front();
-                    std::string request_type_str = (char *)request_type.c_str();
-                    std::cout << "request_type received: " << request_type_str << std::endl;
-
-                    ustring url_list = msg->pop_front();
-                    std::string url_list_str = (char *)url_list.c_str();
-                    std::cout << "url_list received: " << url_list_str << std::endl;
-
-                    Response res = handleRequest(url_list_str, request_type_str, msg, db);
-
-                    publish_to_broker(url_list_str, res.shopping_list, NULL);
-
-                    return new zmsg(res.reply.c_str());  //  We have a request to process
-                } else if (command.compare(k_mdpw_heartbeat.data()) == 0) {
-                    // Do nothing for heartbeats
-                } else if (command.compare(k_mdpw_disconnect.data()) == 0) {
-                    connect_to_broker();
-                } else {
-                    s_console("E: invalid input message (%d)",
-                              (int)*(command.c_str()));
-                    msg->dump();
-                }
-                delete msg;
-            }
-            if (items[1].revents & ZMQ_POLLIN) {
-                zmsg *msg = new zmsg(*m_worker_pull);
-                std::cout << "Received message from worker:" << std::endl;
-                msg->dump();
-                if (m_verbose) {
-                    s_console("I: received message from worker:");
-                    msg->dump();
-                }
-                assert(msg->parts() >= 3);
-
-                ustring empty = msg->pop_front();
-                std::string empty_str = (char *)empty.c_str();
-                std::cout << "empty:" << empty_str << std::endl;
-
-                assert(empty.compare((unsigned char *)"") == 0);
-                // assert (strcmp (empty, "") == 0);
-                // free (empty);
-
-                ustring header = msg->pop_front();
-                std::string header_str = (char *)header.c_str();
-                std::cout << "header:" << header_str << std::endl;
-                assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
-                // free (header);
-
-                std::string command = (char *)msg->pop_front().c_str();
-                std::cout << "command:" << command << std::endl;
-
-                if (command.compare(k_mdpw_join_ring.data()) == 0) {
-                    std::cout << "In rec join ring cmd" << std::endl;
-
-                    std::string received_worker_pull_address = (char *)msg->pop_front().c_str();
-                    size_t pos = received_worker_pull_address.find_last_of(':');
-                    std::string received_worker_port = received_worker_pull_address.substr(pos + 1);
-                    std::cout << "Received worker port: " << received_worker_port << std::endl;
-
-                    std::string connect_receive_worker_address = "tcp://localhost:" + received_worker_port;
-
-                    zmq::socket_t *worker_push_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
-                    worker_push_socket->connect(connect_receive_worker_address.c_str());
-
-                    std::cout << "Connect to worker: " << connect_receive_worker_address << std::endl;
-
-                    ch->addServer(received_worker_pull_address);
-                    ch->addPushSocketViaServer(received_worker_pull_address, worker_push_socket);
-
-                    for (auto& p : ch->getRing()) {
-                        std::cout << "Socket (" << p.first << "): " << p.second << std::endl;
+                    if (m_verbose) {
+                        s_console("I: received message from broker:");
+                        msg->dump();
                     }
+                    m_liveness = n_heartbeat_liveness;
 
-                    for (zmq::socket_t* worker_push_socket : ch->getPushSockets()) {
-                        send_to_worker (worker_push_socket, k_mdpw_broadcast_ring.data(), m_worker_pull_bind, ch, NULL);
+                    assert(msg->parts() >= 3);
+
+                    ustring empty = msg->pop_front();
+                    std::string empty_str = (char *)empty.c_str();
+                    std::cout << "empty:" << empty_str << std::endl;
+
+                    assert(empty.compare((unsigned char *)"") == 0);
+                    // assert (strcmp (empty, "") == 0);
+                    // free (empty);
+
+                    ustring header = msg->pop_front();
+                    std::string header_str = (char *)header.c_str();
+                    std::cout << "header:" << header_str << std::endl;
+                    assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
+                    // free (header);
+
+                    std::string command = (char *)msg->pop_front().c_str();
+                    std::cout << "command:" << command << std::endl;
+                    if (command.compare(k_mdpw_request.data()) == 0) {
+                        std::cout << "Reply to:" << std::endl;
+                        msg->dump();
+                        m_reply_to = msg->unwrap();
+
+                        ustring request_type = msg->pop_front();
+                        std::string request_type_str = (char *)request_type.c_str();
+                        std::cout << "request_type received: " << request_type_str << std::endl;
+
+                        ustring url_list = msg->pop_front();
+                        std::string url_list_str = (char *)url_list.c_str();
+                        std::cout << "url_list received: " << url_list_str << std::endl;
+
+                        Response res = handleRequest(url_list_str, request_type_str, msg, db);
+
+                        publish_to_broker(url_list_str, res.shopping_list, NULL);
+
+                        return new zmsg(res.reply.c_str());  //  We have a request to process
+                    } else if (command.compare(k_mdpw_heartbeat.data()) == 0) {
+                        // Do nothing for heartbeats
+                    } else if (command.compare(k_mdpw_disconnect.data()) == 0) {
+                        connect_to_broker();
+                    } else {
+                        s_console("E: invalid input message (%d)",
+                                  (int)*(command.c_str()));
+                        msg->dump();
                     }
-                } 
-                else if (command.compare (k_mdpw_broadcast_ring.data()) == 0) {
-                    std::cout << "Received broadcast ring" << std::endl;
+                    delete msg;
+                }
+                if (items[1].revents & ZMQ_POLLIN) {
+                    zmsg *msg = new zmsg(*m_worker_pull);
+                    std::cout << "Received message from worker:" << std::endl;
                     msg->dump();
-                    std::string worker_pull_bind =(char*) msg->pop_front().c_str();
-                    std::cout << "worker_pull_bind: " << worker_pull_bind << std::endl;
+                    if (m_verbose) {
+                        s_console("I: received message from worker:");
+                        msg->dump();
+                    }
+                    assert(msg->parts() >= 3);
 
-                    ustring ring_ = msg->pop_front();
+                    ustring empty = msg->pop_front();
+                    std::string empty_str = (char *)empty.c_str();
+                    std::cout << "empty:" << empty_str << std::endl;
 
-                    std::cout << "RING RECV: " << ring_.c_str() << std::endl;
-                    std::map<size_t, std::string> ring = convert_json_to_ring(ring_);
+                    assert(empty.compare((unsigned char *)"") == 0);
+                    // assert (strcmp (empty, "") == 0);
+                    // free (empty);
 
-                    ustring servers_ = msg->pop_front();
-                    std::vector<std::string> servers = convert_json_to_servers(servers_);
+                    ustring header = msg->pop_front();
+                    std::string header_str = (char *)header.c_str();
+                    std::cout << "header:" << header_str << std::endl;
+                    assert(header.compare((unsigned char *)k_mdpw_worker.data()) == 0);
+                    // free (header);
 
-                    ch->updateCH(ring, servers);
-                    std::cout << "New number of workers in the ring: " << ch->getAllServers().size() << std::endl;
+                    std::string command = (char *)msg->pop_front().c_str();
+                    std::cout << "command:" << command << std::endl;
 
-                    for (const auto& [hash, address] : ring) {
+                    if (command.compare(k_mdpw_join_ring.data()) == 0) {
+                        std::cout << "In rec join ring cmd" << std::endl;
 
-                        if (address == this->m_worker_pull_bind_complete || ch->getPushSocket(hash) != nullptr){
-                            continue;
+                        std::string received_worker_pull_address = (char *)msg->pop_front().c_str();
+                        size_t pos = received_worker_pull_address.find_last_of(':');
+                        std::string received_worker_port = received_worker_pull_address.substr(pos + 1);
+                        std::cout << "Received worker port: " << received_worker_port << std::endl;
+
+                        std::string connect_receive_worker_address = "tcp://localhost:" + received_worker_port;
+
+                        zmq::socket_t *worker_push_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
+                        worker_push_socket->set(zmq::sockopt::linger, 0);
+                        worker_push_socket->connect(connect_receive_worker_address.c_str());
+
+                        std::cout << "Connect to worker: " << connect_receive_worker_address << std::endl;
+
+                        ch->addServer(received_worker_pull_address);
+                        ch->addPushSocketViaServer(received_worker_pull_address, worker_push_socket);
+
+                        for (auto &p : ch->getRing()) {
+                            std::cout << "Socket (" << p.first << "): " << p.second << std::endl;
                         }
 
-                        zmq::socket_t *wrk_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+                        for (zmq::socket_t *worker_push_socket : ch->getPushSockets()) {
+                            send_to_worker(worker_push_socket, k_mdpw_broadcast_ring.data(), m_worker_pull_bind, ch, NULL);
+                        }
+                    } else if (command.compare(k_mdpw_broadcast_ring.data()) == 0) {
+                        std::cout << "Received broadcast ring" << std::endl;
+                        msg->dump();
+                        std::string worker_pull_bind = (char *)msg->pop_front().c_str();
+                        std::cout << "worker_pull_bind: " << worker_pull_bind << std::endl;
 
-                        std::cout << "Connected to address: " << address << std::endl;
-                        wrk_push->connect(address.c_str());
-                        ch->addPushSocketViaServer(address, wrk_push);
+                        ustring ring_ = msg->pop_front();
+
+                        std::cout << "RING RECV: " << ring_.c_str() << std::endl;
+                        std::map<size_t, std::string> ring = convert_json_to_ring(ring_);
+
+                        ustring servers_ = msg->pop_front();
+                        std::vector<std::string> servers = convert_json_to_servers(servers_);
+
+                        ch->updateCH(ring, servers);
+                        std::cout << "New number of workers in the ring: " << ch->getAllServers().size() << std::endl;
+
+                        for (const auto &[hash, address] : ring) {
+                            if (address == this->m_worker_pull_bind_complete || ch->getPushSocket(hash) != nullptr) {
+                                continue;
+                            }
+
+                            zmq::socket_t *wrk_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+
+                            std::cout << "Connected to address: " << address << std::endl;
+                            wrk_push->set(zmq::sockopt::linger, 0);
+                            wrk_push->connect(address.c_str());
+                            ch->addPushSocketViaServer(address, wrk_push);
+                        }
                     }
-                }     
-            }
-            else
-            if (--m_liveness == 0) {
-                if (m_verbose) {
-                    s_console ("W: disconnected from broker - retrying...");
+                } else if (--m_liveness == 0) {
+                    if (m_verbose) {
+                        s_console("W: disconnected from broker - retrying...");
+                    }
+                } else if (--m_liveness == 0) {
+                    if (m_verbose) {
+                        s_console("W: disconnected from broker - retrying...");
+                    }
+                    s_sleep(m_reconnect);
+                    connect_to_broker();
                 }
-            } else if (--m_liveness == 0) {
-                if (m_verbose) {
-                    s_console("W: disconnected from broker - retrying...");
+                //  Send HEARTBEAT if it's time
+                if (s_clock() >= m_heartbeat_at) {
+                    send_to_broker(k_mdpw_heartbeat.data(), "", NULL);
+                    m_heartbeat_at += m_heartbeat;
                 }
-                s_sleep(m_reconnect);
-                connect_to_broker();
-            }
-            //  Send HEARTBEAT if it's time
-            if (s_clock() >= m_heartbeat_at) {
-                send_to_broker(k_mdpw_heartbeat.data(), "", NULL);
-                m_heartbeat_at += m_heartbeat;
+            } catch (const zmq::error_t &e) {
+                if (e.num() == EINTR) {
+                    std::cout << "Interrupt received, exiting..." << std::endl;
+                    break;  // Exit the loop if interrupted
+                } else {
+                    throw;  // Re-throw the exception if it's not an interrupt
+                }
             }
         }
+        std::cout << "Exiting recv" << std::endl;
         if (s_interrupted)
-            printf("W: interrupt received, killing worker...\n");
+            std::cout << "W: interrupt received, killing worker..." << std::endl;
         return NULL;
     }
 
@@ -448,7 +462,7 @@ class mdwrk {
         return m_worker_pull_bind;
     }
 
-    zmq::socket_t* get_worker_pull() {
+    zmq::socket_t *get_worker_pull() {
         return m_worker_pull;
     }
 
@@ -456,7 +470,11 @@ class mdwrk {
         return ch;
     }
 
-private:
+    Database &getDatabase() {
+        return db;
+    }
+
+   private:
     static constexpr uint64_t n_heartbeat_liveness = 3;
     const std::string m_broker;
     const std::string m_worker_pub_bind;
@@ -465,13 +483,13 @@ private:
     const std::string m_connect_to_worker;
     const std::string m_service;
     zmq::context_t *m_context;
-    zmq::socket_t *m_worker{};  //  Socket to broker
+    zmq::socket_t *m_worker{};      //  Socket to broker
     zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
-    //zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
+    // zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
-    const int m_verbose;         //  Print activity to stdout
+    const int m_verbose;             //  Print activity to stdout
     Database db;
-    
+
     // Heartbeat management
     int64_t m_heartbeat_at;  //  When to send HEARTBEAT
     size_t m_liveness;       //  How many attempts left
