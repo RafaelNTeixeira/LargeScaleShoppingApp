@@ -83,6 +83,61 @@ class mdwrk {
         delete m_context;
     }
 
+    std::string distribute_work(size_t url_list_hash) {
+        std::cout << "URL LIST: " << url_list_hash << std::endl;
+        std::map<size_t, std::string> sorted_workers = ch->getRing();
+
+        std::string target_worker_pull = "";
+
+        auto it = sorted_workers.lower_bound(url_list_hash);
+
+        if(it == sorted_workers.end()) target_worker_pull = ch->getServer((sorted_workers.rbegin())->second);
+        else {
+            target_worker_pull = ch->getServer(it->second);
+        }
+
+        std::cout << "Target worker pull: " << target_worker_pull << std::endl;
+
+        return target_worker_pull;
+    }
+
+    size_t get_url_list_hash(const ustring& request_type, const ustring& url_list, zmsg* msg) {
+        std::cout << "In get_url_list_hash" << std::endl;
+        std::string request_type_str = (char*) request_type.c_str();
+        std::string url_list_str = (char*) url_list.c_str();
+        std::cout << "request_type received: " << request_type_str << std::endl;
+        std::cout << "url_list received: " << url_list_str << std::endl;
+
+        size_t url_list_hash = generateHash(url_list_str);
+
+        std::cout << "generated url list hash" << std::endl;
+        std::cout << "In created new msg" << std::endl;
+        msg->push_front(url_list_str.c_str());
+        std::cout << "pushed url list str: " << url_list_str << std::endl;
+        msg->push_front(request_type_str.c_str());
+        std::cout << "pushed url req type" << std::endl;
+ 
+        std::cout << "finished url hashing" << std::endl;
+
+        return url_list_hash;
+    }
+
+    zmsg* handle_request(zmsg* msg, Database& db) {
+        ustring request_type = msg->pop_front();
+        std::string request_type_str = (char*)request_type.c_str();
+        std::cout << "request_type received: " << request_type_str << std::endl;
+
+        ustring url_list = msg->pop_front();
+        std::string url_list_str = (char*)url_list.c_str();
+        std::cout << "url_list received: " << url_list_str << std::endl;
+
+        Response res = handleRequest(url_list_str, request_type_str, msg, db);
+
+        publish_to_broker(url_list_str, res.shopping_list, NULL);
+
+        return new zmsg(res.reply.c_str());
+    }
+
     //  ---------------------------------------------------------------------
     //  Send message to broker
     //  If no _msg is provided, creates one internally
@@ -150,7 +205,7 @@ class mdwrk {
             msg->dump();
         }
         std::cout << "Sent to worker: " << std::endl;
-        msg->dump();
+        // msg->dump();
 
         std::cout << "USED SOCKET TO SEND: " << worker_push << std::endl;
 
@@ -314,18 +369,37 @@ class mdwrk {
                     m_reply_to = msg->unwrap();
 
                     ustring request_type = msg->pop_front();
-                    std::string request_type_str = (char *)request_type.c_str();
-                    std::cout << "request_type received: " << request_type_str << std::endl;
-
                     ustring url_list = msg->pop_front();
-                    std::string url_list_str = (char *)url_list.c_str();
-                    std::cout << "url_list received: " << url_list_str << std::endl;
 
-                    Response res = handleRequest(url_list_str, request_type_str, msg, db);
+                    size_t url_list_hash = get_url_list_hash(request_type, url_list, msg);
+                    std::string target_worker_pull = distribute_work(url_list_hash);
 
-                    publish_to_broker(url_list_str, res.shopping_list, NULL);
+                    std::cout << "Going to start sending work" << std::endl;
 
-                    return new zmsg(res.reply.c_str());  //  We have a request to process
+                    if (target_worker_pull == m_worker_pull_bind) {
+                        std::cout << "Target worker is the current worker." << std::endl;
+                        zmsg* response_msg = handle_request(msg, db);
+                        return response_msg;
+                    } else {
+                        std::cout << "Target worker is a different worker." << std::endl;
+                        zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(target_worker_pull);
+                        std::cout << "target_worker_push_socket found" << std::endl;
+                        send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
+                      }
+
+                    // ustring request_type = msg->pop_front();
+                    // std::string request_type_str = (char *)request_type.c_str();
+                    // std::cout << "request_type received: " << request_type_str << std::endl;
+
+                    // ustring url_list = msg->pop_front();
+                    // std::string url_list_str = (char *)url_list.c_str();
+                    // std::cout << "url_list received: " << url_list_str << std::endl;
+
+                    // Response res = handleRequest(url_list_str, request_type_str, msg, db);
+
+                    // publish_to_broker(url_list_str, res.shopping_list, NULL);
+
+                    // return new zmsg(res.reply.c_str());  //  We have a request to process
                 } else if (command.compare(k_mdpw_heartbeat.data()) == 0) {
                     // Do nothing for heartbeats
                 } else if (command.compare(k_mdpw_disconnect.data()) == 0) {
@@ -420,6 +494,11 @@ class mdwrk {
                         ch->addPushSocketViaServer(address, wrk_push);
                     }
                 }     
+                else if (command.compare (k_mdpw_recv_work.data()) == 0) {
+                    std::cout << "Received work to process." << std::endl;
+                    zmsg* response_msg = handle_request(msg, db);
+                    return response_msg;
+                }
             }
             else
             if (--m_liveness == 0) {

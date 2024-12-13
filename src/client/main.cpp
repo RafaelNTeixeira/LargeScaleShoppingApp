@@ -245,6 +245,10 @@ int main(int argc, char* argv[]) {
         json newShoppingListJson;
         json currentShoppingListJson;
 
+        std::string base_url = "msla-";
+        std::string list_id;
+        std::string full_url;
+
         while (!(std::cin >> choice)) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -253,9 +257,8 @@ int main(int argc, char* argv[]) {
 
         switch (choice) {
             case 1: {
-                std::string base_url = "msla-";
-                std::string list_id = mdcli::generateUUID();
-                std::string full_url = base_url + list_id;
+                list_id = mdcli::generateUUID();
+                full_url = base_url + list_id;
 
                 std::cout << "Give a name to your list: ";
                 std::cin >> list_name;
@@ -355,14 +358,14 @@ int main(int argc, char* argv[]) {
             if (choice == 1) {
                 // Create an empty Shopping List (DEALER)
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
+                // std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
                     std::string shoppingListStr = newShoppingListJson.dump();
                     std::cout << "List: " << shoppingListStr << std::endl;
                     msg->push_front(shoppingListStr.c_str());
                     msg->push_front(list_name.c_str());
-                    msg->push_front(generated_url.c_str());
+                    msg->push_front(full_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;

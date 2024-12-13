@@ -12,7 +12,7 @@ size_t generateHash(const std::string &key) {
 
 class ConsistentHashing {
 private: 
-    std::map<size_t, std::string> ring; // <hash, server_name>
+    std::map<size_t, std::string> ring; // <hash, pull_port>
     std::vector<std::string> servers;
     std::map<size_t, zmq::socket_t *> push_sockets;
     int numberOfVirtualNodes;
@@ -98,7 +98,7 @@ public:
         if (it == ring.end()) {
             it = ring.begin(); 
         }
-        return it->second.substr(0, it->second.find(":")); 
+        return it->second; 
     }
 
     std::string getServerVirtual(const std::string &key) {
