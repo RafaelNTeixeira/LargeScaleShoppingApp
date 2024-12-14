@@ -438,7 +438,7 @@ class broker {
 
                     if (header.compare(k_mdp_client.data()) == 0) {
                         client_process(sender, msg);
-                        m_client_senders.insert(sender);  // FAZ SENTIDO TER ISTO, SENDO QUE O CLIENTE É INSERIDO NO HEARTBEAT?
+                        // m_client_senders.insert(sender);  // FAZ SENTIDO TER ISTO, SENDO QUE O CLIENTE É INSERIDO NO HEARTBEAT?
                     } else {
                         s_console("E: invalid message:");
                         msg->dump();
@@ -511,6 +511,7 @@ class broker {
                 if (now_client >= heartbeat_at_client) {
                     if (!m_waiting.empty()) {
                         // Submit a heartbeat to each connected client
+                        std::cout << "Number of clients: " << m_client_senders.size() << std::endl;
                         for (const auto &client_sender : m_client_senders) {
                             zmsg *message = new zmsg();
                             std::string heartbeat_message = "heartbeat";

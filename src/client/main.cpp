@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
 
     mdcli client(broker_ip, 1);
 
-    std::thread update_listener(listenForUpdates, std::ref(client));
+    // std::thread update_listener(listenForUpdates, std::ref(client));
     // update_listener.detach();  // Ensures the thread runs independently
 
     std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
@@ -235,6 +235,7 @@ int main(int argc, char* argv[]) {
 
     while (s_interrupted == 0) {
         displayMenu();
+        std::cout << "Cloud Mode: " << client.get_cloud_mode() << std::endl;
         std::cout << "Enter choice: ";
         std::string get_list_url = "";
         std::string update_list_list_url = "";
@@ -416,7 +417,7 @@ int main(int argc, char* argv[]) {
     }
 
     // End the other threads
-    update_listener.join();
+    // update_listener.join();
     update_heartbeat.join();
 
     try {
