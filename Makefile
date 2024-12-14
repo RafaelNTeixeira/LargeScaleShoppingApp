@@ -40,7 +40,7 @@ client:
 
 runClient1:
 	mkdir -p database/local/user1/
-	./src/client/client "tcp://localhost:5556" "database/local/user1/"
+	./src/client/client "tcp://localhost:5556" "tcp://localhost:5554" "database/local/user1/"
 
 runClient2:
 	mkdir -p database/local/user2/

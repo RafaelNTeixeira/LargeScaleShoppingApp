@@ -51,6 +51,7 @@ class broker {
     broker(int verbose) : m_verbose(verbose) {
         m_context = new zmq::context_t(1);
         m_client = new zmq::socket_t(*m_context, ZMQ_ROUTER);
+        m_client_heartbeat = new zmq::socket_t(*m_context, ZMQ_ROUTER);
         m_worker = new zmq::socket_t(*m_context, ZMQ_ROUTER);
         m_xpub_socket = new zmq::socket_t(*m_context, ZMQ_XPUB);
         m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
@@ -69,6 +70,7 @@ class broker {
             m_workers.erase(m_workers.begin());
         }
         delete m_client;
+        delete m_client_heartbeat;
         delete m_worker;
         delete m_xpub_socket;
         delete m_xsub_socket;
@@ -78,7 +80,7 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Bind broker to endpoints, can call this multiple times
     //  We use two router sockets, one for clients and another for workers.
-    void bind(std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint, std::string xsubEndpoint) {
+    void bind(std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint, std::string xsubEndpoint, std::string routerClientHeartbeatEndpoint) {
         m_routerWorkerEndpoint = routerWorkerEndpoint;
         m_worker->bind(m_routerWorkerEndpoint.c_str());
         s_console("I: MDP WORKER ROUTER broker/0.1.1 is active at %s", m_routerWorkerEndpoint.c_str());
@@ -86,6 +88,10 @@ class broker {
         m_routerClientEndpoint = routerClientEndpoint;
         m_client->bind(m_routerClientEndpoint.c_str());
         s_console("I: MDP CLIENT ROUTER broker/0.1.1 is active at %s", m_routerClientEndpoint.c_str());
+
+        m_routerClientHeartbeatEndpoint = routerClientHeartbeatEndpoint;
+        m_client_heartbeat->bind(m_routerClientHeartbeatEndpoint.c_str());
+        s_console("I: MDP CLIENT HEARTBEAT ROUTER broker/0.1.1 is active at %s", m_routerClientHeartbeatEndpoint.c_str());
 
         m_xpubEndpoint = xpubEndpoint;
         m_xpub_socket->bind(m_xpubEndpoint.c_str());
@@ -522,7 +528,7 @@ class broker {
 
                             std::cout << "Sending HEARTBEAT to Client: " << client_sender << std::endl;
                             message->dump();
-                            message->send(*m_client);
+                            message->send(*m_client_heartbeat);
                             delete message;
                         }
                         heartbeat_at_client += n_heartbeat_interval;
@@ -546,11 +552,13 @@ class broker {
    private:
     zmq::context_t *m_context;                    //  0MQ context
     zmq::socket_t *m_client;                      //  Socket for clients list requests
+    zmq::socket_t *m_client_heartbeat;            //  Socket for clients heartbeats
     zmq::socket_t *m_worker;                      //  Socket for workers tasks request
     zmq::socket_t *m_xpub_socket;                 //  Socket for broker to publish list updates to clients
     zmq::socket_t *m_xsub_socket;                 //  Socket for broker to subscribe to list updates made by workers
     const int m_verbose;                          //  Print activity to stdout
     std::string m_routerClientEndpoint;           //  Broker binds ROUTER socket to this client endpoint
+    std::string m_routerClientHeartbeatEndpoint;  //  Broker binds ROUTER socket to this client_heartbeat endpoint
     std::string m_routerWorkerEndpoint;           //  Broker binds ROUTER socket to this worker endpoint
     std::string m_pullEndpoint;                   //  Broker binds PULL socket to this endpoint
     std::string m_xpubEndpoint;                   //  Broker binds XPUB to this endpoint

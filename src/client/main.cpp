@@ -208,19 +208,20 @@ void listenForUpdates(mdcli& client, Database& db) {
 // Function receive heartbeats from the broker
 void listenForHeartBeats(mdcli& client) {
     while (s_interrupted == 0) {
-        zmsg* heartbeat = client.recv();
+        zmsg* heartbeat = client.recv_heartbeat();
     }
 }
 
 int main(int argc, char* argv[]) {
-    // usage : ./client <broker_ip/port> <path/to/database>
-    if (argc != 3) {
+    // usage : ./client <broker_ip/port> <broker_heartbeat_ip/port> <path/to/database>
+    if (argc != 4) {
         std::cerr << "Usage: " << argv[0] << " <broker_ip/port> <path/to/database>" << std::endl;
         return 1;
     }
 
     std::string broker_ip = argv[1];
-    std::string db_path = argv[2];
+    std::string broker_heartbeat_ip = argv[2];
+    std::string db_path = argv[3];
 
     std::cout << "______SHOPPING APPLICATION______" << std::endl;
     std::cout << "Welcome to the Shopping Application!" << std::endl;
@@ -237,7 +238,7 @@ int main(int argc, char* argv[]) {
 
     s_catch_signals();
 
-    mdcli client(broker_ip, 1);
+    mdcli client(broker_ip, broker_heartbeat_ip, 1);
 
     // std::thread update_listener(listenForUpdates, std::ref(client), std::ref(db));
     // update_listener.detach();  // Ensures the thread runs independently
@@ -414,25 +415,25 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // if (cloud_mode == 1) {
-            //     zmsg* reply = client.recv();
-            //     if (reply) {
-            //         std::cout << "Reply received: " << std::endl;
-            //         reply->dump();
+            if (cloud_mode == 1) {
+                zmsg* reply = client.recv_heartbeat();
+                if (reply) {
+                    std::cout << "Reply received: " << std::endl;
+                    reply->dump();
 
-            //         ustring temp = reply->pop_front();
-            //         if (temp.empty()) {
-            //             std::cerr << "Error: Received empty reply!" << std::endl;
-            //         } else {
-            //             std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-            //             std::cout << "Response from server: " << response << std::endl;
-            //         }
+                    ustring temp = reply->pop_front();
+                    if (temp.empty()) {
+                        std::cerr << "Error: Received empty reply!" << std::endl;
+                    } else {
+                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+                        std::cout << "Response from server: " << response << std::endl;
+                    }
 
-            //         delete reply;
-            //     } else {
-            //         std::cout << "No response received from the server." << std::endl;
-            //     }
-            // }
+                    delete reply;
+                } else {
+                    std::cout << "No response received from the server." << std::endl;
+                }
+            }
         }
     }
 

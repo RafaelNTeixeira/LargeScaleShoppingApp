@@ -12,7 +12,7 @@ class mdcli {
    public:
     //  ---------------------------------------------------------------------
     //  Constructor
-    mdcli(std::string broker, int verbose) : m_broker(broker), m_verbose(verbose) {
+    mdcli(std::string broker, std::string broker_heartbeat,int verbose) : m_broker(broker), m_broker_heartbeat(broker_heartbeat), m_verbose(verbose) {
         s_version_assert(4, 0);
         m_context = new zmq::context_t(1);
         // s_catch_signals ();
@@ -25,6 +25,7 @@ class mdcli {
     virtual ~mdcli() {
         delete m_sub_socket;
         delete m_client;
+        delete m_client_heartbeat;
         delete m_context;
     }
 
@@ -44,15 +45,27 @@ class mdcli {
         if (m_client) {
             delete m_client;
         }
+        if (m_client_heartbeat) {
+            delete m_client_heartbeat;
+        }
         m_client = new zmq::socket_t(*m_context, ZMQ_DEALER);
+        m_client_heartbeat = new zmq::socket_t(*m_context, ZMQ_DEALER);
+
         int linger = 0;  // Discard unsent messages immediately
         m_client->set(zmq::sockopt::linger, linger);
+        m_client_heartbeat->set(zmq::sockopt::linger, linger);
+
         std::string client_id = generateUUID();
         m_client->set(zmq::sockopt::routing_id, client_id);
         m_client->connect(m_broker.c_str());
+
+        m_client_heartbeat->set(zmq::sockopt::routing_id, client_id);
+        m_client_heartbeat->connect(m_broker_heartbeat.c_str());
+
         m_heartbeat_at = s_clock() + m_heartbeat;
         if (m_verbose)
             s_console("I: connecting to broker at %s...", m_broker.c_str());
+            s_console("I: connecting to broker HEARTBEAT at %s...", m_broker_heartbeat.c_str());
     }
 
     // Initialize and connect SUB socket
@@ -238,10 +251,76 @@ class mdcli {
         return 0;
     }
 
+    zmsg *recv_heartbeat() {
+        //  Poll socket for a reply, with timeout
+        zmq::pollitem_t items[] = {
+            {*m_client_heartbeat, 0, ZMQ_POLLIN, 0}};
+        zmq::poll(items, 1, std::chrono::milliseconds(m_timeout));
+
+        //  If we got a reply, process it
+        if (items[0].revents & ZMQ_POLLIN) {
+            zmsg *msg = new zmsg(*m_client_heartbeat);
+            std::cout << "HEARTBEAT" << std::endl;
+            msg->dump();
+
+            // if (m_verbose) {
+            //     s_console("I: received reply:");
+            //     msg->dump();
+            // }
+
+            if (msg->parts() < 4) {
+                std::cout << "Received invalid message from broker" << std::endl;
+                msg->dump();
+            }
+            assert(msg->parts() >= 4);
+
+            assert(msg->pop_front().length() == 0);  // empty message
+
+            ustring header = msg->pop_front();
+            // std::cout << "HEADER: " << header.c_str() << std::endl;
+            if (header.compare((unsigned char *)k_mdp_client.data()) == 0) {
+                ustring service = msg->pop_front();
+                assert(service.compare((unsigned char *)service.c_str()) == 0);
+                // std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
+                if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
+                    // std::cout << "Received HEARTBEAT from Broker" << std::endl;
+                    n_heartbeat_expiry = s_clock() + 2500;
+                    cloud_mode = true;
+                }
+            }
+
+            return msg;  // Success
+        }
+
+        if (s_clock() >= m_heartbeat_at) {
+            zmsg *message = new zmsg();
+            int res = send("HEARTBEAT", "", message);
+            // std::cout << "Sending HEARTBEAT to Broker" << std::endl;
+            m_heartbeat_at += m_heartbeat;
+            // std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        }
+
+        if (s_clock() >= n_heartbeat_expiry) {
+            // std::cout << "HEARTBEAT EXPIRED" << std::endl;
+            cloud_mode = false;
+            // std::cout << "cloud_mode: " << cloud_mode << std::endl;
+        }
+
+        if (s_interrupted) {
+            // std::cout << "W: interrupt received, killing client..." << std::endl;
+        } else if (m_verbose) {
+            // s_console("W: permanent error, abandoning request");
+        }
+
+        return 0;
+    }
+
    private:
     const std::string m_broker;
+    const std::string m_broker_heartbeat;
     zmq::context_t *m_context;
     zmq::socket_t *m_client{};  //  Socket to client
+    zmq::socket_t *m_client_heartbeat{};  //  Socket to heartbeat
     zmq::socket_t *m_sub_socket{};
     const int m_verbose;     //  Print activity to stdout
     int64_t m_heartbeat_at;  //  When to send HEARTBEAT
