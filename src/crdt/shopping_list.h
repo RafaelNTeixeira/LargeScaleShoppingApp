@@ -119,6 +119,12 @@ class ShoppingList {
     }
 
     bool join(const ShoppingList& o) {
+        if (url.empty()) {
+            url = o.url;
+        }
+        if (title.empty()) {
+            title = o.title;
+        }
         if (title != o.title || url != o.url) {
             return false;
         }
@@ -157,7 +163,7 @@ void to_json(nlohmann::json& j, const ShoppingList& u) {
 }
 
 void from_json(const nlohmann::json& j, ShoppingList& u) {
-    if (j.is_null()) {
+    if (j.is_null() || j.empty() || j == "") {
         return;
     }
     u.id = j.at("id").get<std::string>();

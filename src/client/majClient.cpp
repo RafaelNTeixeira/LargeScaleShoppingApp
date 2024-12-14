@@ -159,7 +159,7 @@ class mdcli {
         request->push_front(k_mdp_client.data());
         request->push_front("");
 
-        request->dump();
+        // request->dump();
 
         request->send(*m_client);
         std::string endpoint = m_client->get(zmq::sockopt::last_endpoint);
@@ -184,10 +184,10 @@ class mdcli {
             // std::cout << "Client got reply:" << std::endl;
             // msg->dump();
 
-            if (m_verbose) {
-                s_console("I: received reply:");
-                msg->dump();
-            }
+            // if (m_verbose) {
+            //     s_console("I: received reply:");
+            //     msg->dump();
+            // }
 
             assert(msg->parts() >= 4);
 

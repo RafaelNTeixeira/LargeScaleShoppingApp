@@ -78,6 +78,10 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         ShoppingList new_list;
         ShoppingList stored_list;
 
+        std::cout << "Hello from UPDATE_LIST" << std::endl;
+        std::cout << "Received shopping list: " << received_shopping_list << std::endl;
+        std::cout << "Stored shopping list: " << stored_shopping_list << std::endl;
+
         from_json(received_shopping_list, new_list);
         from_json(stored_shopping_list, stored_list);
 

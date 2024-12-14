@@ -401,6 +401,7 @@ int main(int argc, char* argv[]) {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
+                    to_json(currentShoppingListJson, currentShoppingList);
                     std::string shoppingListStr = currentShoppingListJson.dump();
 
                     msg->push_front(shoppingListStr.c_str());
