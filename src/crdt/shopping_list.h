@@ -157,6 +157,9 @@ void to_json(nlohmann::json& j, const ShoppingList& u) {
 }
 
 void from_json(const nlohmann::json& j, ShoppingList& u) {
+    if (j.is_null()) {
+        return;
+    }
     u.id = j.at("id").get<std::string>();
     u.title = j.at("title").get<std::string>();
     u.url = j.at("url").get<std::string>();
