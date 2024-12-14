@@ -93,6 +93,7 @@ class mdcli {
             }
 
             // Process the zmsg
+            // NEEDS TO BE UPDATED TO HANDLE THE SHOPPING LIST
             if (msg->parts() > 0) {
                 std::cout << "Received active update through SUB socket:" << std::endl;
                 msg->dump();
@@ -182,8 +183,8 @@ class mdcli {
             // msg->dump();
 
             if (m_verbose) {
-                // s_console("I: received reply:");
-                // msg->dump();
+                s_console("I: received reply:");
+                msg->dump();
             }
 
             assert(msg->parts() >= 4);
