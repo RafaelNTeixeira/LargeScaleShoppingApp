@@ -62,7 +62,7 @@ class Database {
         if (db.contains(key)) {
             return db[key];
         }
-        return "";
+        return json();
     }
 
     // Set the value of a key

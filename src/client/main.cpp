@@ -188,6 +188,7 @@ void updateList(Database& db, const std::string& list_url, const json& shoppingL
         to_json(updatedShoppingListJson, databaseList);
         db.set(list_url, updatedShoppingListJson);
     } else {
+        std::cout << "Shopping list does not exist in the database. Creating..." << std::endl;
         db.set(list_url, shoppingList);
     }
 }
@@ -200,7 +201,6 @@ void listenForUpdates(mdcli& client, Database& db) {
             std::string list_url = sub_update[0];
             try {
                 json shopping_list = json::parse(sub_update[1].c_str());
-                std::cout << "PARSED JSON: " << shopping_list.dump() << std::endl;
                 updateList(db, list_url, shopping_list);
             } catch (const json::parse_error& e) {
                 std::cerr << "Error parsing JSON: " << e.what() << std::endl;
@@ -308,7 +308,6 @@ int main(int argc, char* argv[]) {
             case 2: {
                 std::cout << "Enter List URL to retrieve: ";
                 std::cin >> get_list_url;
-
                 break;
             }
             case 3: {
@@ -408,9 +407,9 @@ int main(int argc, char* argv[]) {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 const char* url_list_msg_parameter = get_list_url.c_str();
                 if (cloud_mode) {
+                    client.subscribe_to_list(get_list_url);
                     zmsg* msg = new zmsg(url_list_msg_parameter);
                     client.send("LIST_MANAGEMENT", "GET_LIST", msg);
-                    client.subscribe_to_list(get_list_url);
                 } else {
                     std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
                 }

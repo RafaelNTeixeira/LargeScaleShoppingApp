@@ -72,7 +72,7 @@ TEST_F(DatabaseTest, Del) {
     Database db2{};
     db2.load(file_directory);
 
-    EXPECT_EQ(db2.get("shopping_list1"), "");
+    EXPECT_EQ(db2.get("shopping_list1"), json());
 }
 
 TEST_F(DatabaseTest, Set) {
@@ -92,6 +92,16 @@ TEST_F(DatabaseTest, Set) {
 TEST_F(DatabaseTest, Exists) {
     EXPECT_TRUE(db.exists("shopping_list1"));
     EXPECT_FALSE(db.exists("shopping_list3"));
+}
+
+TEST_F(DatabaseTest, ShoppingListJSON) {
+    ShoppingList shoppingList1;
+    from_json(db.get("shopping_list4"), shoppingList1);
+    const char* j = "{\"id\":\"\",\"items\":{\"context\":{\"dc\":[],\"vc\":{}},\"map\":{}},\"title\":\"marco\",\"url\":\"msla-a06caa5f-aeed-4b81-b045-2a08eb300b0a\"}";
+    json j2 = json::parse(j);
+    from_json(j2, shoppingList1);
+    EXPECT_EQ(shoppingList1.getId(), "");
+
 }
 
 int main(int argc, char** argv) {

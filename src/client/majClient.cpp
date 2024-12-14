@@ -68,6 +68,7 @@ class mdcli {
 
     void subscribe_to_list(std::string list_url) {
         m_sub_socket->set(zmq::sockopt::subscribe, list_url);
+        std::cout << "Subscribed to list: " << list_url << std::endl;
         client_url_list.push_back(list_url);
     }
 

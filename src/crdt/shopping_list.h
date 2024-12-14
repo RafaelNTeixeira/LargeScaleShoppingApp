@@ -163,24 +163,53 @@ void to_json(nlohmann::json& j, const ShoppingList& u) {
 }
 
 void from_json(const nlohmann::json& j, ShoppingList& u) {
-    if (j.is_null() || j.empty() || j == "") {
-        return;
-    }
-    u.id = j.at("id").get<std::string>();
-    u.title = j.at("title").get<std::string>();
-    u.url = j.at("url").get<std::string>();
+    try {
+        if (j.is_null() || j.empty() || j == "") {
+            return;
+        }
 
-    ShoppingList temp{u.id, u.title, u.url};
-    temp.items.base.fromJson(j.at("items").at("context"));
-    if (j.at("items").at("map").is_null()) {
-        return;
+        if (j.contains("id") && j["id"].is_string()) {
+            u.id = j.at("id").get<std::string>();
+        } else {
+            u.id = ""; // or handle the case where "id" is missing or invalid
+        }
+
+        if (j.contains("title") && j["title"].is_string()) {
+            u.title = j.at("title").get<std::string>();
+        } else {
+            u.title = ""; // handle missing/invalid "title"
+        }
+
+        if (j.contains("url") && j["url"].is_string()) {
+            u.url = j.at("url").get<std::string>();
+        } else {
+            u.url = ""; // handle missing/invalid "url"
+        }
+
+        ShoppingList temp{u.id, u.title, u.url};
+
+        if (j.contains("items") && j["items"].is_object()) {
+            const auto& items = j.at("items");
+
+            if (items.contains("context") && items["context"].is_object()) {
+                temp.items.base.fromJson(items.at("context"));
+            }
+
+            if (items.contains("map") && items["map"].is_object()) {
+                for (const auto& item : items.at("map").items()) {
+                    CausalCounter<int> counter;
+                    counter.core.values = item.value().get<std::map<std::pair<std::string, long>, int>>();
+                    temp.items.map[item.key()] = counter;
+                }
+            }
+        }
+
+        u.join(temp);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "JSON: " << j.dump() << std::endl; // To print the entire JSON object
     }
-    for (const auto& item : j.at("items").at("map").items()) {
-        CausalCounter<int> counter;
-        counter.core.values = item.value().get<std::map<std::pair<std::string, long>, int>>();
-        temp.items.map[item.key()] = counter;
-    }
-    u.join(temp);
 }
+
 
 #endif
