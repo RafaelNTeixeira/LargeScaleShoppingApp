@@ -83,13 +83,15 @@ class mdcli {
 
         // Loop to process all available messages
         while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
-            // Initialize a new zmsg for each complete message
+
+            // PART 0: URL_LIST
+            // PART 1: SHOPPING_LIST
             zmsg *msg = new zmsg();
-            msg->push_front(static_cast<const char *>(message.data()));  // Add the first part
+            msg->push_back(static_cast<const char *>(message.data()));  // Add the first part
 
             // Continue receiving other parts if multipart
             while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
-                msg->push_front(static_cast<const char *>(message.data()));  // Add each subsequent part
+                msg->push_back(static_cast<const char *>(message.data()));  // Add each subsequent part
             }
 
             // Process the zmsg
@@ -99,13 +101,12 @@ class mdcli {
                 msg->dump();
 
                 std::string url_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));
-                std::cout << "url_list: " << url_list << std::endl;
-
+                results.push_back(url_list);  // Add the URL list to results
                 std::string shopping_list;
 
                 if (msg->parts() > 0) {
-                    shopping_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));  // Extract the shopping list
-                    std::cout << "Shopping list: " << shopping_list << std::endl;
+                    shopping_list = ((char*)msg->pop_front().c_str());
+
                     results.push_back(shopping_list);  // Add the shopping list to results
                 } else {
                     std::cerr << "Expected a shopping list part, but none was found!" << std::endl;

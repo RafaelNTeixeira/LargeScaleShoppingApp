@@ -238,18 +238,14 @@ class mdwrk {
         // Frame 0: Topic (url of updated list)
         // Frame 1: Updated shopping list
 
-        const char *shopping_list_str = shopping_list.dump().c_str();
-
-        msg->push_front(shopping_list_str);
+        msg->push_front(shopping_list.dump().c_str());
         msg->push_front(url_list.c_str());
 
         if (m_verbose) {
             s_console("I: sending to broker topic", url_list);
             msg->dump();
         }
-        std::cout << "Shopping list to publish: " << std::endl;
-        std::cout << shopping_list_str << std::endl;
-        std::cout << "Publish to broker: " << std::endl;
+        std::cout << "Sent to broker XSUB: " << std::endl;
         msg->dump();
         msg->send(*m_worker_pub);
         delete msg;

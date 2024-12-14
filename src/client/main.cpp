@@ -197,18 +197,36 @@ void listenForUpdates(mdcli& client, Database& db) {
     while (s_interrupted == 0) {
         std::vector<std::string> sub_update = client.receive_updates();
         if (!sub_update.empty()) {
-            std::cout << "List update notification received:" << std::endl;
-            for (const auto& update : sub_update) {
-                std::cout << " - " << update << std::endl;
+            std::string list_url = sub_update[0];
+            try {
+                json shopping_list = json::parse(sub_update[1].c_str());
+                std::cout << "PARSED JSON: " << shopping_list.dump() << std::endl;
+                updateList(db, list_url, shopping_list);
+            } catch (const json::parse_error& e) {
+                std::cerr << "Error parsing JSON: " << e.what() << std::endl;
+                std::cerr << "Received: " << sub_update[1] << std::endl;
             }
         }
     }
 }
 
 // Function receive heartbeats from the broker
-void listenForHeartBeats(mdcli& client) {
+void listenForHeartBeats(mdcli& client, Database& db) {
+    bool last_cloud_mode = false;
     while (s_interrupted == 0) {
         zmsg* heartbeat = client.recv();
+        if (last_cloud_mode != client.get_cloud_mode()) {
+            std::cout << "Cloud Mode updated: " << client.get_cloud_mode() << std::endl;
+            last_cloud_mode = client.get_cloud_mode();
+            if (client.get_cloud_mode()) {
+                std::cout << "Connected to the cloud." << std::endl;
+                for (const auto& key : db.keys()) {
+                    client.subscribe_to_list(key);
+                }
+            } else {
+                std::cout << "Disconnected from the cloud." << std::endl;
+            }
+        }
     }
 }
 
@@ -239,10 +257,10 @@ int main(int argc, char* argv[]) {
 
     mdcli client(broker_ip, 1);
 
-    // std::thread update_listener(listenForUpdates, std::ref(client), std::ref(db));
+    std::thread update_listener(listenForUpdates, std::ref(client), std::ref(db));
     // update_listener.detach();  // Ensures the thread runs independently
 
-    std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
+    std::thread update_heartbeat(listenForHeartBeats, std::ref(client), std::ref(db));
     // update_heartbeat.detach();  // Ensures the thread runs independently
 
     json request_json;
@@ -346,14 +364,13 @@ int main(int argc, char* argv[]) {
                 if (db.keys().empty()) {
                     break;
                 }
-                std::string delete_list_url;
                 std::cout << "Enter List URL to delete: ";
-                std::cin >> delete_list_url;
-                if (!db.exists(delete_list_url)) {
+                std::cin >> update_list_list_url;
+                if (!db.exists(update_list_list_url)) {
                     std::cout << "No shopping list found with that URL." << std::endl;
                     break;
                 }
-                db.del(delete_list_url);
+                db.del(update_list_list_url);
                 std::cout << "Shopping list deleted successfully!" << std::endl;
                 break;
             }
@@ -384,6 +401,7 @@ int main(int argc, char* argv[]) {
                     std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;
+                    client.subscribe_to_list(full_url);
                 }
             } else if (choice == 2) {
                 // Ask for a Shopping List (DEALER)
@@ -392,25 +410,29 @@ int main(int argc, char* argv[]) {
                 if (cloud_mode) {
                     zmsg* msg = new zmsg(url_list_msg_parameter);
                     client.send("LIST_MANAGEMENT", "GET_LIST", msg);
+                    client.subscribe_to_list(get_list_url);
                 } else {
                     std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
                 }
             } else if (choice == 3) {
                 std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                if (cloud_mode) {
+                if (cloud_mode && db.exists(update_list_list_url)) {
                     zmsg* msg = new zmsg();
                     to_json(currentShoppingListJson, currentShoppingList);
                     std::string shoppingListStr = currentShoppingListJson.dump();
-
-                    std::cout << "shoppingList: " << shoppingListStr << std::endl;
-
-                    std::cout << "update_list_list_url: " << update_list_list_url << std::endl;
 
                     msg->push_front(shoppingListStr.c_str());
                     msg->push_front(update_list_list_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
+                    client.subscribe_to_list(update_list_list_url);
                     delete msg;
+                }
+            } else if (choice == 4) {
+                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                if (cloud_mode) {
+                    client.unsubscribe_from_list(update_list_list_url);
+                    std::cout << "MSG SENT TO HANDLE op 4: " << std::endl;
                 }
             }
 
@@ -436,8 +458,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    for (const auto& key : db.keys()) {
+        client.unsubscribe_from_list(key);
+    }
+
     // End the other threads
-    // update_listener.join();
+    update_listener.join();
     update_heartbeat.join();
 
     try {
