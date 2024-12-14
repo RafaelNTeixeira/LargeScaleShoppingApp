@@ -384,8 +384,6 @@ int main(int argc, char* argv[]) {
                     std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;
-                } else {
-                    std::cout << "Local mode needs development" << std::endl;
                 }
             } else if (choice == 2) {
                 // Ask for a Shopping List (DEALER)
@@ -404,13 +402,15 @@ int main(int argc, char* argv[]) {
                     to_json(currentShoppingListJson, currentShoppingList);
                     std::string shoppingListStr = currentShoppingListJson.dump();
 
+                    std::cout << "shoppingList: " << shoppingListStr << std::endl;
+
+                    std::cout << "update_list_list_url: " << update_list_list_url << std::endl;
+
                     msg->push_front(shoppingListStr.c_str());
                     msg->push_front(update_list_list_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
                     delete msg;
-                } else {
-                    std::cout << "Local mode needs development" << std::endl;
                 }
             }
 
