@@ -176,8 +176,24 @@ bool buyProductsFromList(ShoppingList& shoppingList) {
     return true;
 }
 
+void updateList(Database& db, const std::string& list_url, const json& shoppingList) {
+    // make it thread safe
+    if (db.exists(list_url)) {
+        std::cout << "Shopping list already exists in the database. Updating..." << std::endl;
+        json databaseShoppingList = db.get(list_url);
+        ShoppingList databaseList;
+        from_json(databaseShoppingList, databaseList);
+        databaseList.join(shoppingList);
+        json updatedShoppingListJson;
+        to_json(updatedShoppingListJson, databaseList);
+        db.set(list_url, updatedShoppingListJson);
+    } else {
+        db.set(list_url, shoppingList);
+    }
+}
+
 // Function receive shopping list updates from the SUB socket
-void listenForUpdates(mdcli& client) {
+void listenForUpdates(mdcli& client, Database& db) {
     while (s_interrupted == 0) {
         std::vector<std::string> sub_update = client.receive_updates();
         if (!sub_update.empty()) {
@@ -223,7 +239,7 @@ int main(int argc, char* argv[]) {
 
     mdcli client(broker_ip, 1);
 
-    std::thread update_listener(listenForUpdates, std::ref(client));
+    // std::thread update_listener(listenForUpdates, std::ref(client), std::ref(db));
     // update_listener.detach();  // Ensures the thread runs independently
 
     std::thread update_heartbeat(listenForHeartBeats, std::ref(client));
@@ -235,12 +251,11 @@ int main(int argc, char* argv[]) {
 
     while (s_interrupted == 0) {
         displayMenu();
+        std::cout << "Cloud Mode: " << client.get_cloud_mode() << std::endl;
         std::cout << "Enter choice: ";
         std::string get_list_url = "";
         std::string update_list_list_url = "";
         std::string list_name = "";
-        std::string product_name = "";
-        int product_quantity = 0;
 
         json newShoppingListJson;
         json currentShoppingListJson;
@@ -389,8 +404,6 @@ int main(int argc, char* argv[]) {
                     std::string shoppingListStr = currentShoppingListJson.dump();
 
                     msg->push_front(shoppingListStr.c_str());
-                    msg->push_front(std::to_string(product_quantity).c_str());
-                    msg->push_front(product_name.c_str());
                     msg->push_front(update_list_list_url.c_str());
                     std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
@@ -423,7 +436,7 @@ int main(int argc, char* argv[]) {
     }
 
     // End the other threads
-    update_listener.join();
+    // update_listener.join();
     update_heartbeat.join();
 
     try {

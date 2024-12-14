@@ -1,4 +1,11 @@
 #include <iostream>
+#include <mutex>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "../crdt/shopping_list.h"
+#include "../database.h"
 
 void displayMenu() {
     std::cout << "______SHOPPING APPLICATION______\n";

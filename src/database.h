@@ -8,7 +8,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -98,6 +97,10 @@ class Database {
             result.push_back(key);
         }
         return result;
+    }
+
+    std::mutex& getMutex() {
+        return mutex;
     }
 
    private:

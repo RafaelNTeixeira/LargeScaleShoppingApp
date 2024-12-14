@@ -23,7 +23,6 @@ class mdcli {
     //  ---------------------------------------------------------------------
     //  Destructor
     virtual ~mdcli() {
-        delete m_push_socket;
         delete m_sub_socket;
         delete m_client;
         delete m_context;
@@ -94,6 +93,7 @@ class mdcli {
             }
 
             // Process the zmsg
+            // NEEDS TO BE UPDATED TO HANDLE THE SHOPPING LIST
             if (msg->parts() > 0) {
                 std::cout << "Received active update through SUB socket:" << std::endl;
                 msg->dump();
@@ -143,10 +143,10 @@ class mdcli {
         assert(request_p);
         zmsg *request = request_p;
 
-        // if (m_verbose) {
-        //     s_console("I: send request to '%s' service:", service.c_str());
-        //     request->dump();
-        // }
+        if (m_verbose) {
+            s_console("I: send request to '%s' service:", service.c_str());
+            request->dump();
+        }
 
         //  Prefix request with protocol frames
         //  Frame 0: empty (REQ emulation)
@@ -185,8 +185,8 @@ class mdcli {
             // msg->dump();
 
             if (m_verbose) {
-                // s_console("I: received reply:");
-                // msg->dump();
+                s_console("I: received reply:");
+                msg->dump();
             }
 
             assert(msg->parts() >= 4);
@@ -236,7 +236,6 @@ class mdcli {
     const std::string m_broker;
     zmq::context_t *m_context;
     zmq::socket_t *m_client{};  //  Socket to client
-    zmq::socket_t *m_push_socket{};
     zmq::socket_t *m_sub_socket{};
     const int m_verbose;     //  Print activity to stdout
     int64_t m_heartbeat_at;  //  When to send HEARTBEAT

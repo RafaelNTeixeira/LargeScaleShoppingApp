@@ -1,5 +1,5 @@
 .PHONY: database worker runWorker1 runWorker2 runWorker3 runWorker4 broker runBroker runClient test testCRDT clean
-TARGETS = database/cloud/database.db database/local/*/* src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
+TARGETS = database/cloud/*/* database/local/*/* src/client/client src/worker/worker src/broker/broker test/crdt/test database/local/shopping_lists.db
 SYSTEM_PACKAGES = $(shell cat system-requirements.txt)
 
 all: clean database worker broker client
@@ -59,9 +59,6 @@ testDatabase: compileTestDatabase
 	./test/database/test
 	
 test: testCRDT testDatabase
-
-database:
-	sqlite3 database/cloud/database.db < database/cloud/database.sql
 
 clean:
 	rm -f $(TARGETS)

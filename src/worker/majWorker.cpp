@@ -45,14 +45,14 @@ std::vector<std::string> convert_json_to_servers(const ustring &json_str) {
     return result;
 }
 
-std::string get_socket_endpoint(zmq::socket_t* socket) {
+std::string get_socket_endpoint(zmq::socket_t *socket) {
     return socket->get(zmq::sockopt::last_endpoint);
 }
 
-std::string replace(std::string i_str, const std::string& from, const std::string& to) {
+std::string replace(std::string i_str, const std::string &from, const std::string &to) {
     std::string str = i_str;
     size_t start_pos = str.find(from);
-    if(start_pos == std::string::npos)
+    if (start_pos == std::string::npos)
         return str;
     str.replace(start_pos, from.length(), to);
     return str;
@@ -77,10 +77,13 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     //  Destructor
     virtual ~mdwrk() {
+        for (auto &push_socket : ch->getPushSockets()) {
+            delete push_socket;
+        }
         delete ch;
         delete m_worker;
+        delete m_worker_pull;
         delete m_worker_pub;
-        delete m_context;
     }
 
     std::string distribute_work(size_t url_list_hash) {
@@ -181,8 +184,8 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     //  Send message to worker
     //  If no _msg is provided, creates one internally
-    void send_to_worker(zmq::socket_t* worker_push, const char *command, const std::string worker_pull_bind, ConsistentHashing* ch, zmsg *_msg) {
-        zmsg *msg = _msg? new zmsg(*_msg): new zmsg ();
+    void send_to_worker(zmq::socket_t *worker_push, const char *command, const std::string worker_pull_bind, ConsistentHashing *ch, zmsg *_msg) {
+        zmsg *msg = _msg ? new zmsg(*_msg) : new zmsg();
 
         // Frame 0: Empty frame
         // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
@@ -220,7 +223,7 @@ class mdwrk {
 
         std::cout << "USED SOCKET TO SEND: " << worker_push << std::endl;
 
-        msg->send (*worker_push);
+        msg->send(*worker_push);
         delete msg;
     }
 
@@ -242,6 +245,8 @@ class mdwrk {
             s_console("I: sending to broker topic", url_list);
             msg->dump();
         }
+        std::cout << "Shopping list to publish: " << std::endl;
+        std::cout << shopping_list_str << std::endl;
         std::cout << "Publish to broker: " << std::endl;
         msg->dump();
         msg->send(*m_worker_pub);
@@ -270,15 +275,18 @@ class mdwrk {
         std::string worker_id = generateUUID();
         m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect(m_broker.c_str());
-        
+
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
+        m_worker_pub->set(zmq::sockopt::linger, 0);
         m_worker_pub->bind(m_worker_pub_bind.c_str());
 
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
+        m_worker_pull->set(zmq::sockopt::linger, 0);
         m_worker_pull->bind(m_worker_pull_bind.c_str());
         std::cout << "PULL socket bound to " << m_worker_pull_bind << std::endl;
 
         zmq::socket_t *m_worker_push = new zmq::socket_t(*m_context, ZMQ_PUSH);
+        m_worker_push->set(zmq::sockopt::linger, 0);
         std::cout << "PUSH socket created" << std::endl;
 
         // Joining workers
@@ -287,10 +295,10 @@ class mdwrk {
 
             m_worker_push->connect(m_connect_to_worker.c_str());
 
-            // ENVIAR ENDPOINT EM VEZ DE BIND
-            send_to_worker (m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
+            send_to_worker(m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
 
             m_worker_push->disconnect(m_connect_to_worker.c_str());
+            delete m_worker_push;
         }
         // First worker
         else {
@@ -540,7 +548,7 @@ class mdwrk {
         return m_worker_pull_bind;
     }
 
-    zmq::socket_t* get_worker_pull() {
+    zmq::socket_t *get_worker_pull() {
         return m_worker_pull;
     }
 
@@ -548,7 +556,11 @@ class mdwrk {
         return ch;
     }
 
-private:
+    Database &getDatabase() {
+        return db;
+    }
+
+   private:
     static constexpr uint64_t n_heartbeat_liveness = 3;
     const std::string m_broker;
     const std::string m_worker_pub_bind;
@@ -557,13 +569,13 @@ private:
     const std::string m_connect_to_worker;
     const std::string m_service;
     zmq::context_t *m_context;
-    zmq::socket_t *m_worker{};  //  Socket to broker
+    zmq::socket_t *m_worker{};      //  Socket to broker
     zmq::socket_t *m_worker_pub{};  //  Bind for PUB socket
-    //zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
+    // zmq::socket_t *m_worker_push{};  //  Bind for PUSH socket
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
-    const int m_verbose;         //  Print activity to stdout
+    const int m_verbose;             //  Print activity to stdout
     Database db;
-    
+
     // Heartbeat management
     int64_t m_heartbeat_at;  //  When to send HEARTBEAT
     size_t m_liveness;       //  How many attempts left
