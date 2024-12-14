@@ -247,7 +247,6 @@ int main(int argc, char* argv[]) {
 
     json request_json;
     int choice;
-    ShoppingList currentShoppingList;
 
     while (s_interrupted == 0) {
         displayMenu();
@@ -256,6 +255,7 @@ int main(int argc, char* argv[]) {
         std::string get_list_url = "";
         std::string update_list_list_url = "";
         std::string list_name = "";
+        ShoppingList currentShoppingList;
 
         json newShoppingListJson;
         json currentShoppingListJson;
