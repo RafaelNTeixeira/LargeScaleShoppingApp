@@ -143,10 +143,10 @@ class mdcli {
         assert(request_p);
         zmsg *request = request_p;
 
-        if (m_verbose) {
-            s_console("I: send request to '%s' service:", service.c_str());
-            request->dump();
-        }
+        // if (m_verbose) {
+        //     s_console("I: send request to '%s' service:", service.c_str());
+        //     request->dump();
+        // }
 
         //  Prefix request with protocol frames
         //  Frame 0: empty (REQ emulation)

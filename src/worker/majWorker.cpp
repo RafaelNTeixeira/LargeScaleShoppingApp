@@ -86,18 +86,28 @@ class mdwrk {
         delete m_worker_pub;
     }
 
-    std::string distribute_work(size_t url_list_hash) {
-        std::cout << "URL LIST: " << url_list_hash << std::endl;
+    std::string distribute_work(std::string url_list) {
+        std::cout << "URL LIST: " << url_list << std::endl;
         std::map<size_t, std::string> sorted_workers = ch->getRing();
 
         std::string target_worker_pull = "";
 
-        auto it = sorted_workers.lower_bound(url_list_hash);
+        std::cout << "HERE1" << std::endl;
 
-        if(it == sorted_workers.end()) target_worker_pull = ch->getServer((sorted_workers.rbegin())->second);
-        else {
-            target_worker_pull = ch->getServer(it->second);
-        }
+        //auto it = sorted_workers.lower_bound(url_list);
+
+        target_worker_pull = ch->getServer(url_list);
+
+        // if (it == sorted_workers.end()) {
+        //     std::cout << "HERE2" << std::endl;
+        //     target_worker_pull = ch->getServer((sorted_workers.begin())->second);
+        //     std::cout << "HERE3" << std::endl;
+        // }
+        // else {
+        //     std::cout << "HERE4" << std::endl;
+        //     target_worker_pull = ch->getServer(it->second);
+        //     std::cout << "HERE5" << std::endl;
+        // }
 
         std::cout << "Target worker pull: " << target_worker_pull << std::endl;
 
@@ -105,7 +115,6 @@ class mdwrk {
     }
 
     size_t get_url_list_hash(const ustring& request_type, const ustring& url_list, zmsg* msg) {
-        std::cout << "In get_url_list_hash" << std::endl;
         std::string request_type_str = (char*) request_type.c_str();
         std::string url_list_str = (char*) url_list.c_str();
         std::cout << "request_type received: " << request_type_str << std::endl;
@@ -113,16 +122,9 @@ class mdwrk {
 
         size_t url_list_hash = generateHash(url_list_str);
 
-        std::cout << "generated url list hash" << std::endl;
-        std::cout << "In created new msg" << std::endl;
         msg->push_front(url_list_str.c_str());
-        std::cout << "pushed url list str: " << url_list_str << std::endl;
         msg->push_front(request_type_str.c_str());
-        std::cout << "pushed url req type" << std::endl;
-
         msg->push_front("");
- 
-        std::cout << "finished url hashing" << std::endl;
 
         msg->dump();
 
@@ -189,10 +191,10 @@ class mdwrk {
 
         // Frame 0: Empty frame
         // Frame 1: “MDPW01” (six bytes, representing MDP/Worker v0.1)
-        // Frame 2: 0x07 (one byte, representing JOIN_RING)
-        // Frame 3: Worker Pull Bind Address
-        // Frame 4: Ring Servers (Might be empty)
-        // Frame 5: Ring (Might be empty)
+        // Frame 2: 0x07 (one byte, representing JOIN_RING (example))
+        // Frame 3: Worker Pull Bind Address (Optional)
+        // Frame 4: Ring Servers (Optional)
+        // Frame 5: Ring (Might be Optional)
 
         if (ch != NULL) {
             std::cout << "ENTERED ch" << std::endl;
@@ -297,8 +299,8 @@ class mdwrk {
 
             send_to_worker(m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
 
-            m_worker_push->disconnect(m_connect_to_worker.c_str());
-            delete m_worker_push;
+            //m_worker_push->disconnect(m_connect_to_worker.c_str());
+            //delete m_worker_push;
         }
         // First worker
         else {
@@ -389,11 +391,13 @@ class mdwrk {
 
                     ustring request_type = msg->pop_front();
                     ustring url_list = msg->pop_front();
+                    
+                    msg->push_front((char*)url_list.c_str());
+                    msg->push_front((char*)request_type.c_str());
+                    msg->push_front("");
 
-                    size_t url_list_hash = get_url_list_hash(request_type, url_list, msg);
-                    std::string target_worker_pull = distribute_work(url_list_hash);
-
-                    std::cout << "Going to start sending work" << std::endl;
+                    //size_t url_list_hash = get_url_list_hash(request_type, url_list, msg);
+                    std::string target_worker_pull = distribute_work((char*)url_list.c_str());
 
                     std::cout << "Current worker pull bind: " << m_worker_pull_bind_complete << std::endl;
 
@@ -402,9 +406,9 @@ class mdwrk {
                         zmsg* response_msg = handle_request(msg, db);
                         return response_msg;
                     } else {
-                        std::cout << "Target worker is a different worker." << std::endl;
+                        std::cout << "Target worker is a different worker: " << target_worker_pull << std::endl;
                         zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(target_worker_pull);
-                        std::cout << "target_worker_push_socket found" << std::endl;
+                        msg->wrap(m_reply_to.c_str(), "");
                         send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
                       }
 
@@ -443,8 +447,6 @@ class mdwrk {
                 assert(msg->parts() >= 3);
 
                 ustring empty = msg->pop_front();
-                std::string empty_str = (char *)empty.c_str();
-                std::cout << "empty:" << empty_str << std::endl;
 
                 assert(empty.compare((unsigned char *)"") == 0);
                 // assert (strcmp (empty, "") == 0);
@@ -517,6 +519,8 @@ class mdwrk {
                 }   
                 else if (command.compare (k_mdpw_recv_work.data()) == 0) {
                     std::cout << "Received work to process." << std::endl;
+                    m_reply_to = msg->unwrap();
+                    msg->dump();
                     zmsg* response_msg = handle_request(msg, db);
                     return response_msg;
                 }  

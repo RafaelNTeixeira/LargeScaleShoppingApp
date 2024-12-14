@@ -90,6 +90,7 @@ public:
 
     std::string getServer(const std::string &key) {
         if (ring.empty()) {
+            std::cout << "EMPTY RING" << std::endl;
             return "";
         }
 
