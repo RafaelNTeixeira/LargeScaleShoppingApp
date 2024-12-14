@@ -299,8 +299,8 @@ class mdwrk {
 
             send_to_worker(m_worker_push, k_mdpw_join_ring.data(), m_worker_pull_bind_complete, NULL, NULL);
 
-            //m_worker_push->disconnect(m_connect_to_worker.c_str());
-            //delete m_worker_push;
+            ch->addServer(m_connect_to_worker);
+            ch->addPushSocketViaServer(m_connect_to_worker, m_worker_push);
         }
         // First worker
         else {
@@ -351,6 +351,7 @@ class mdwrk {
         m_expect_reply = true;
 
         while (!s_interrupted) {
+            try {
             zmq::pollitem_t items[] = {
                 {*m_worker, 0, ZMQ_POLLIN, 0},
                 {*m_worker_pull, 0, ZMQ_POLLIN, 0}};
@@ -542,6 +543,15 @@ class mdwrk {
                 send_to_broker(k_mdpw_heartbeat.data(), "", NULL);
                 m_heartbeat_at += m_heartbeat;
             }
+            } catch (const zmq::error_t &e) {
+                if (e.num() == EINTR) {
+                    std::cout << "Interrupt received, exiting..." << std::endl;
+                    break;  // Exit the loop if interrupted
+                } else {
+                    throw;  // Re-throw the exception if it's not an interrupt
+                }
+            }
+
         }
         if (s_interrupted)
             printf("W: interrupt received, killing worker...\n");
