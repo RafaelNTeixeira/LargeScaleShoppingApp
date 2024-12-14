@@ -414,25 +414,25 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            if (cloud_mode == 1) {
-                zmsg* reply = client.recv();
-                if (reply) {
-                    std::cout << "Reply received: " << std::endl;
-                    reply->dump();
+            // if (cloud_mode == 1) {
+            //     zmsg* reply = client.recv();
+            //     if (reply) {
+            //         std::cout << "Reply received: " << std::endl;
+            //         reply->dump();
 
-                    ustring temp = reply->pop_front();
-                    if (temp.empty()) {
-                        std::cerr << "Error: Received empty reply!" << std::endl;
-                    } else {
-                        std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
-                        std::cout << "Response from server: " << response << std::endl;
-                    }
+            //         ustring temp = reply->pop_front();
+            //         if (temp.empty()) {
+            //             std::cerr << "Error: Received empty reply!" << std::endl;
+            //         } else {
+            //             std::string response(reinterpret_cast<const char*>(temp.c_str()), temp.size());
+            //             std::cout << "Response from server: " << response << std::endl;
+            //         }
 
-                    delete reply;
-                } else {
-                    std::cout << "No response received from the server." << std::endl;
-                }
-            }
+            //         delete reply;
+            //     } else {
+            //         std::cout << "No response received from the server." << std::endl;
+            //     }
+            // }
         }
     }
 

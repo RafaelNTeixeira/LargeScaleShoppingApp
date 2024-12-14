@@ -160,7 +160,7 @@ class mdcli {
         request->push_front("");
 
         if (service != "HEARTBEAT"){
-            request->dump();
+            // request->dump();
         }
 
         request->send(*m_client);
@@ -191,6 +191,10 @@ class mdcli {
             //     msg->dump();
             // }
 
+            if (msg->parts() < 4) {
+                std::cout << "Received invalid message from broker" << std::endl;
+                msg->dump();
+            }
             assert(msg->parts() >= 4);
 
             assert(msg->pop_front().length() == 0);  // empty message
