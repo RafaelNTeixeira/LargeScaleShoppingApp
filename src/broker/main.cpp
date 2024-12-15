@@ -15,8 +15,6 @@ int main(int argc, char *argv[]) {
     broker brk(verbose);
     brk.bind("tcp://*:5555", "tcp://*:5556", "tcp://*:5557", "tcp://*:5558", "tcp://*:5554");
 
-    std::cout << "HERE" << std::endl;
-
     brk.start_brokering();
 
     if (s_interrupted)

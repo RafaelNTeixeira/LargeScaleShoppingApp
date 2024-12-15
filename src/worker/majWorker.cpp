@@ -87,16 +87,9 @@ class mdwrk {
     }
 
     std::vector<std::string> distribute_work(std::string url_list) {
-        std::cout << "URL LIST: " << url_list << std::endl;
         std::map<size_t, std::string> sorted_workers = ch->getRing();
 
-        // std::string target_worker_pull = "";
-
         std::vector<std::string> target_workers_pull;
-
-        std::cout << "HERE1" << std::endl;
-
-        //auto it = sorted_workers.lower_bound(url_list);
 
         std::string primary_worker = ch->getServer(url_list);
         target_workers_pull.push_back(primary_worker);
@@ -107,34 +100,18 @@ class mdwrk {
             next_worker = ch->getNextServer(next_worker);
             auto is_worker_in_list = std::find(target_workers_pull.begin(), target_workers_pull.end(), next_worker);
             if (!next_worker.empty() && is_worker_in_list == target_workers_pull.end()) {
-                std::cout << "found a new worker!" << std::endl;
                 target_workers_pull.push_back(next_worker);
             } else {
                 break; 
             }
         }
 
-        // if (it == sorted_workers.end()) {
-        //     std::cout << "HERE2" << std::endl;
-        //     target_worker_pull = ch->getServer((sorted_workers.begin())->second);
-        //     std::cout << "HERE3" << std::endl;
-        // }
-        // else {
-        //     std::cout << "HERE4" << std::endl;
-        //     target_worker_pull = ch->getServer(it->second);
-        //     std::cout << "HERE5" << std::endl;
-        // }
-
-
         return target_workers_pull;
     }
 
     size_t get_url_list_hash(const ustring& request_type, const ustring& url_list, zmsg* msg) {
-        std::cout << "in get url_hash" << std::endl;
         std::string request_type_str = (char*) request_type.c_str();
         std::string url_list_str = (char*) url_list.c_str();
-        std::cout << "request_type received: " << request_type_str << std::endl;
-        std::cout << "url_list received: " << url_list_str << std::endl;
 
         size_t url_list_hash = generateHash(url_list_str);
 
@@ -148,16 +125,13 @@ class mdwrk {
     }
 
     zmsg* handle_request(zmsg* msg, Database& db) {
-        std::cout << "in handle req" << std::endl;
         ustring empty = msg->pop_front();
         
         ustring request_type = msg->pop_front();
         std::string request_type_str = (char*)request_type.c_str();
-        std::cout << "request_type received: " << request_type_str << std::endl;
 
         ustring url_list = msg->pop_front();
         std::string url_list_str = (char*)url_list.c_str();
-        std::cout << "url_list received: " << url_list_str << std::endl;
 
         msg->dump();
 
@@ -216,7 +190,6 @@ class mdwrk {
         // Frame 5: Ring (Might be Optional)
 
         if (ch != NULL) {
-            std::cout << "ENTERED ch" << std::endl;
             std::vector<std::string> servers = ch->getAllServers();
             json servers_json = servers;
             std::string servers_str = servers_json.dump();
@@ -350,7 +323,6 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     //  Send reply, if any, to broker and wait for next request.
     zmsg *recv(zmsg *&reply_p) {
-        std::cout << "Entered recv" << std::endl;
         // Format and send the reply if we were provided one
         zmsg *reply = reply_p;
         assert(reply || !m_expect_reply);
@@ -527,14 +499,13 @@ class mdwrk {
                     }
                 } 
                 else if (command.compare (k_mdpw_broadcast_ring.data()) == 0) {
-                    std::cout << "Received broadcast ring" << command << std::endl;
+                    std::cout << "Received broadcast ring." << command << std::endl;
                     msg->dump();
                     std::string worker_pull_bind =(char*) msg->pop_front().c_str();
                     std::cout << "worker_pull_bind: " << worker_pull_bind << std::endl;
 
                     ustring ring_ = msg->pop_front();
 
-                    std::cout << "RING RECV: " << ring_.c_str() << std::endl;
                     std::map<size_t, std::string> ring = convert_json_to_ring(ring_);
 
                     ustring servers_ = msg->pop_front();
