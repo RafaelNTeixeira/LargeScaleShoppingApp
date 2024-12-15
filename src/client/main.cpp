@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
             }
 
             if (cloud_mode == 1) {
-                zmsg* reply = client.recv_heartbeat();
+                zmsg* reply = client.recv();
                 if (reply) {
                     std::cout << "Reply received: " << std::endl;
                     reply->dump();

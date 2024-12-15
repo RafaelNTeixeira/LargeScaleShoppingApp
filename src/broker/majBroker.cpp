@@ -114,37 +114,30 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Delete any idle workers that haven't pinged us in a while.
     void purge_workers() {
-        std::cout << "Entered purge_workers" << std::endl;
         std::deque<worker *> toCull;
         int64_t now = s_clock();
         for (auto wrk = m_waiting.begin(); wrk != m_waiting.end(); ++wrk) {
-            std::cout << "Entered first for in purge_workers" << std::endl;
             if ((*wrk)->m_expiry <= now)
                 toCull.push_back(*wrk);
         }
         for (auto wrk = toCull.begin(); wrk != toCull.end(); ++wrk) {
-            std::cout << "Entered second for in purge_workers" << std::endl;
             if (m_verbose) {
                 s_console("I: deleting expired worker: %s",
                           (*wrk)->m_identity.c_str());
             }
             worker_delete(*wrk, 0);
         }
-        std::cout << "Exiting purge_workers" << std::endl;
     }
 
     //  ---------------------------------------------------------------------
     //  Locate or create new service entry
     service *service_require(std::string name) {
-        std::cout << "Entered service_require" << std::endl;
         assert(!name.empty());
         if (m_services.count(name)) {
-            std::cout << "Retrieve service" << std::endl;
             return m_services.at(name);
         }
         service *srv = new service(name);
         m_services.insert(std::pair{name, srv});
-        std::cout << "Added new service: " << m_services.at(name) << std::endl;
         if (m_verbose) {
             s_console("I: added service: %s", name.c_str());
         }
@@ -154,8 +147,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Dispatch requests to waiting workers as possible
     void service_dispatch(service *srv, zmsg *msg) {
-        std::cout << "Entered service_dispatch" << std::endl;
-        std::cout << "service dispatched: " << srv << std::endl;
         assert(srv);
         if (msg) {  //  Queue message if any
             std::cout << "Queue message: " << msg << std::endl;
@@ -164,9 +155,6 @@ class broker {
         }
 
         purge_workers();
-        std::cout << "service name: " << srv->m_name << std::endl;
-        std::cout << "workers waiting count: " << srv->m_waiting.size() << std::endl;
-        std::cout << "Requests count: " << srv->m_requests.size() << std::endl;
         while (!srv->m_waiting.empty() && !srv->m_requests.empty()) {
             // Choose the most recently seen idle worker; others might be about to expire
             auto wrk = srv->m_waiting.begin();
@@ -177,8 +165,6 @@ class broker {
             }
 
             zmsg *msg = srv->m_requests.front();
-            std::cout << "Message before worker_send:" << std::endl;
-            msg->dump();
             srv->m_requests.pop_front();
             std::cout << "Sent REQUEST to worker:" << std::endl;
             worker_send(*wrk, k_mdpw_request.data(), "", msg);
@@ -191,7 +177,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Handle internal service according to 8/MMI specification
     void service_internal(std::string service_name, zmsg *msg) {
-        std::cout << "Entered service_internal" << std::endl;
         if (service_name.compare("mmi.service") == 0) {
             // service *srv = m_services[msg->body()]; // Dangerous! Silently add key with default value
             service *srv = m_services.count(msg->body()) ? m_services.at(msg->body()) : nullptr;
@@ -234,7 +219,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Deletes worker from all data structures, and destroys worker
     void worker_delete(worker *&wrk, int disconnect) {
-        std::cout << "Entered worker_delete" << std::endl;
         assert(wrk);
         if (disconnect) {
             std::cout << "Sent DISCONNECT to worker" << std::endl;
@@ -269,7 +253,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Process message sent to us by a worker
     void worker_process(std::string sender, zmsg *msg) {
-        std::cout << "Entered worker_process" << std::endl;
         assert(msg && msg->parts() >= 1);  //  At least, command
 
         std::string command = (char *)msg->pop_front().c_str();
@@ -289,7 +272,6 @@ class broker {
                     //  Attach worker to service and mark as idle
                     std::cout << "Attach worker to service and mark as idle" << std::endl;
                     std::string service_name = (char *)msg->pop_front().c_str();
-                    std::cout << "Service name received from worker: " << service_name << std::endl;
                     wrk->m_service = service_require(service_name);
                     wrk->m_service->m_workers++;
                     worker_waiting(wrk);
@@ -377,7 +359,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  This worker is now waiting for work
     void worker_waiting(worker *worker) {
-        std::cout << "Entered worker_waiting" << std::endl;
         assert(worker);
         //  Queue to broker and service waiting lists
         m_waiting.insert(worker);
@@ -393,7 +374,6 @@ class broker {
         assert(msg && msg->parts() >= 2);  //  Service name + body
 
         std::string service_name = (char *)msg->pop_front().c_str();
-        std::cout << "Service name received from client: " << service_name << std::endl;
         if (service_name == "HEARTBEAT") {
             m_client_senders.insert(sender);
         } else {

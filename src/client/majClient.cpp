@@ -217,12 +217,6 @@ class mdcli {
             if (header.compare((unsigned char *)k_mdp_client.data()) == 0) {
                 ustring service = msg->pop_front();
                 assert(service.compare((unsigned char *)service.c_str()) == 0);
-                // std::cout << "Service Message: " << std::string(service.begin(), service.end()) << std::endl;
-                if (service.compare((unsigned char *)k_mdpc_heartbeat.data()) == 0) {
-                    // std::cout << "Received HEARTBEAT from Broker" << std::endl;
-                    n_heartbeat_expiry = s_clock() + 2500;
-                    cloud_mode = true;
-                }
             }
 
             return msg;  // Success
