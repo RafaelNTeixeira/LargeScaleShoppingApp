@@ -48,11 +48,11 @@ client:
 
 runClient1:
 	mkdir -p database/local/user1/
-	./src/client/client "tcp://localhost:5556" "database/local/user1/"
+	./src/client/client "tcp://localhost:5556" "tcp://localhost:5554" "database/local/user1/"
 
 runClient2:
 	mkdir -p database/local/user2/
-	./src/client/client "tcp://localhost:5556" "database/local/user2/"
+	./src/client/client "tcp://localhost:5556" "tcp://localhost:5554" "database/local/user2/"
 
 compileTestCRDT: test/crdt/test.cpp src/crdt/*
 	g++ test/crdt/test.cpp -o test/crdt/test -O3 -lgtest -lgtest_main -pthread
