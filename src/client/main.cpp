@@ -396,11 +396,11 @@ int main(int argc, char* argv[]) {
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
                     std::string shoppingListStr = newShoppingListJson.dump();
-                    std::cout << "List: " << shoppingListStr << std::endl;
+                    // std::cout << "List: " << shoppingListStr << std::endl;
                     msg->push_front(shoppingListStr.c_str());
                     msg->push_front(list_name.c_str());
                     msg->push_front(full_url.c_str());
-                    std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
+                    // std::cout << "MSG SENT TO HANDLE op 1: " << std::endl;
                     client.send("LIST_MANAGEMENT", "CREATE_LIST", msg);
                     delete msg;
                     client.subscribe_to_list(full_url);
@@ -425,7 +425,7 @@ int main(int argc, char* argv[]) {
 
                     msg->push_front(shoppingListStr.c_str());
                     msg->push_front(update_list_list_url.c_str());
-                    std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
+                    // std::cout << "MSG SENT TO HANDLE op 3: " << std::endl;
                     client.send("LIST_MANAGEMENT", "UPDATE_LIST", msg);
                     client.subscribe_to_list(update_list_list_url);
                     delete msg;
@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
                 // std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode) {
                     client.unsubscribe_from_list(update_list_list_url);
-                    std::cout << "MSG SENT TO HANDLE op 4: " << std::endl;
+                    // std::cout << "MSG SENT TO HANDLE op 4: " << std::endl;
                 }
             }
 
