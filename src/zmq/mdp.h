@@ -22,11 +22,11 @@ static constexpr std::string_view k_mdpw_disconnect="\x05";
 static constexpr std::string_view k_mdpw_join_ring="\x07";
 static constexpr std::string_view k_mdpw_broadcast_ring="\x08";
 static constexpr std::string_view k_mdpw_recv_work="\x09";
+static constexpr std::string_view k_mdpw_worker_occupied="\x10";
 
 static constexpr std::string_view mdps_commands [] = {
-    "", "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT", "CLIENT_HEARTBEAT", "JOIN_RING", "BROADCAST_RING", "RECV_WORK"
+    "", "READY", "REQUEST", "REPLY", "HEARTBEAT", "DISCONNECT", "CLIENT_HEARTBEAT", "JOIN_RING", "BROADCAST_RING", "RECV_WORK", "WORKER_OCCUPIED"
 };
-
 
 using ustring = std::basic_string<unsigned char>;
 #endif

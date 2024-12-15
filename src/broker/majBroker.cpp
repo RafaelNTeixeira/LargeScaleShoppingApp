@@ -51,6 +51,7 @@ class broker {
     broker(int verbose) : m_verbose(verbose) {
         m_context = new zmq::context_t(1);
         m_client = new zmq::socket_t(*m_context, ZMQ_ROUTER);
+        m_client_heartbeat = new zmq::socket_t(*m_context, ZMQ_ROUTER);
         m_worker = new zmq::socket_t(*m_context, ZMQ_ROUTER);
         m_xpub_socket = new zmq::socket_t(*m_context, ZMQ_XPUB);
         m_xsub_socket = new zmq::socket_t(*m_context, ZMQ_SUB);
@@ -69,6 +70,7 @@ class broker {
             m_workers.erase(m_workers.begin());
         }
         delete m_client;
+        delete m_client_heartbeat;
         delete m_worker;
         delete m_xpub_socket;
         delete m_xsub_socket;
@@ -78,7 +80,7 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Bind broker to endpoints, can call this multiple times
     //  We use two router sockets, one for clients and another for workers.
-    void bind(std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint, std::string xsubEndpoint) {
+    void bind(std::string routerWorkerEndpoint, std::string routerClientEndpoint, std::string xpubEndpoint, std::string xsubEndpoint, std::string routerClientHeartbeatEndpoint) {
         m_routerWorkerEndpoint = routerWorkerEndpoint;
         m_worker->bind(m_routerWorkerEndpoint.c_str());
         s_console("I: MDP WORKER ROUTER broker/0.1.1 is active at %s", m_routerWorkerEndpoint.c_str());
@@ -86,6 +88,10 @@ class broker {
         m_routerClientEndpoint = routerClientEndpoint;
         m_client->bind(m_routerClientEndpoint.c_str());
         s_console("I: MDP CLIENT ROUTER broker/0.1.1 is active at %s", m_routerClientEndpoint.c_str());
+
+        m_routerClientHeartbeatEndpoint = routerClientHeartbeatEndpoint;
+        m_client_heartbeat->bind(m_routerClientHeartbeatEndpoint.c_str());
+        s_console("I: MDP CLIENT HEARTBEAT ROUTER broker/0.1.1 is active at %s", m_routerClientHeartbeatEndpoint.c_str());
 
         m_xpubEndpoint = xpubEndpoint;
         m_xpub_socket->bind(m_xpubEndpoint.c_str());
@@ -108,37 +114,30 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Delete any idle workers that haven't pinged us in a while.
     void purge_workers() {
-        std::cout << "Entered purge_workers" << std::endl;
         std::deque<worker *> toCull;
         int64_t now = s_clock();
         for (auto wrk = m_waiting.begin(); wrk != m_waiting.end(); ++wrk) {
-            std::cout << "Entered first for in purge_workers" << std::endl;
             if ((*wrk)->m_expiry <= now)
                 toCull.push_back(*wrk);
         }
         for (auto wrk = toCull.begin(); wrk != toCull.end(); ++wrk) {
-            std::cout << "Entered second for in purge_workers" << std::endl;
             if (m_verbose) {
                 s_console("I: deleting expired worker: %s",
                           (*wrk)->m_identity.c_str());
             }
             worker_delete(*wrk, 0);
         }
-        std::cout << "Exiting purge_workers" << std::endl;
     }
 
     //  ---------------------------------------------------------------------
     //  Locate or create new service entry
     service *service_require(std::string name) {
-        std::cout << "Entered service_require" << std::endl;
         assert(!name.empty());
         if (m_services.count(name)) {
-            std::cout << "Retrieve service" << std::endl;
             return m_services.at(name);
         }
         service *srv = new service(name);
         m_services.insert(std::pair{name, srv});
-        std::cout << "Added new service: " << m_services.at(name) << std::endl;
         if (m_verbose) {
             s_console("I: added service: %s", name.c_str());
         }
@@ -148,8 +147,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Dispatch requests to waiting workers as possible
     void service_dispatch(service *srv, zmsg *msg) {
-        std::cout << "Entered service_dispatch" << std::endl;
-        std::cout << "service dispatched: " << srv << std::endl;
         assert(srv);
         if (msg) {  //  Queue message if any
             std::cout << "Queue message: " << msg << std::endl;
@@ -158,9 +155,6 @@ class broker {
         }
 
         purge_workers();
-        std::cout << "service name: " << srv->m_name << std::endl;
-        std::cout << "workers waiting count: " << srv->m_waiting.size() << std::endl;
-        std::cout << "Requests count: " << srv->m_requests.size() << std::endl;
         while (!srv->m_waiting.empty() && !srv->m_requests.empty()) {
             // Choose the most recently seen idle worker; others might be about to expire
             auto wrk = srv->m_waiting.begin();
@@ -171,8 +165,6 @@ class broker {
             }
 
             zmsg *msg = srv->m_requests.front();
-            std::cout << "Message before worker_send:" << std::endl;
-            msg->dump();
             srv->m_requests.pop_front();
             std::cout << "Sent REQUEST to worker:" << std::endl;
             worker_send(*wrk, k_mdpw_request.data(), "", msg);
@@ -185,7 +177,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Handle internal service according to 8/MMI specification
     void service_internal(std::string service_name, zmsg *msg) {
-        std::cout << "Entered service_internal" << std::endl;
         if (service_name.compare("mmi.service") == 0) {
             // service *srv = m_services[msg->body()]; // Dangerous! Silently add key with default value
             service *srv = m_services.count(msg->body()) ? m_services.at(msg->body()) : nullptr;
@@ -212,7 +203,7 @@ class broker {
     worker *worker_require(std::string identity) {
         assert(!identity.empty());
 
-        //  self->workers is keyed off worker identity
+        // self->workers is keyed off worker identity
         if (m_workers.count(identity)) {
             return m_workers.at(identity);
         } else {
@@ -228,7 +219,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Deletes worker from all data structures, and destroys worker
     void worker_delete(worker *&wrk, int disconnect) {
-        std::cout << "Entered worker_delete" << std::endl;
         assert(wrk);
         if (disconnect) {
             std::cout << "Sent DISCONNECT to worker" << std::endl;
@@ -263,7 +253,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  Process message sent to us by a worker
     void worker_process(std::string sender, zmsg *msg) {
-        std::cout << "Entered worker_process" << std::endl;
         assert(msg && msg->parts() >= 1);  //  At least, command
 
         std::string command = (char *)msg->pop_front().c_str();
@@ -272,6 +261,8 @@ class broker {
 
         if (command.compare(k_mdpw_ready.data()) == 0) {
             std::cout << "Received READY from worker" << std::endl;
+
+            std::cout << "Worker identity: " << wrk->m_identity << std::endl;
 
             if (worker_ready) {  //  Not first command in session
                 worker_delete(wrk, 1);
@@ -283,13 +274,21 @@ class broker {
                     //  Attach worker to service and mark as idle
                     std::cout << "Attach worker to service and mark as idle" << std::endl;
                     std::string service_name = (char *)msg->pop_front().c_str();
-                    std::cout << "Service name received from worker: " << service_name << std::endl;
                     wrk->m_service = service_require(service_name);
                     wrk->m_service->m_workers++;
                     worker_waiting(wrk);
                 }
             }
-        } else {
+        } else if (command.compare(k_mdpw_worker_occupied.data()) == 0) {
+            std::cout << "Received k_mdpw_worker_occupied: " << std::endl;
+            msg->dump();
+            std::string sender = (char*) msg->pop_front().c_str();
+            std::cout << "Sender: " << sender << std::endl;
+            worker* wrk = m_workers.at(sender);
+            m_waiting.erase(wrk);
+            wrk->m_service->m_waiting.remove(wrk);
+        }
+        else {
             if (command.compare(k_mdpw_reply.data()) == 0) {
                 std::cout << "Received REPLY from worker" << std::endl;
                 if (worker_ready) {
@@ -371,7 +370,6 @@ class broker {
     //  ---------------------------------------------------------------------
     //  This worker is now waiting for work
     void worker_waiting(worker *worker) {
-        std::cout << "Entered worker_waiting" << std::endl;
         assert(worker);
         //  Queue to broker and service waiting lists
         m_waiting.insert(worker);
@@ -387,7 +385,6 @@ class broker {
         assert(msg && msg->parts() >= 2);  //  Service name + body
 
         std::string service_name = (char *)msg->pop_front().c_str();
-        std::cout << "Service name received from client: " << service_name << std::endl;
         if (service_name == "HEARTBEAT") {
             m_client_senders.insert(sender);
         } else {
@@ -522,7 +519,7 @@ class broker {
 
                             std::cout << "Sending HEARTBEAT to Client: " << client_sender << std::endl;
                             message->dump();
-                            message->send(*m_client);
+                            message->send(*m_client_heartbeat);
                             delete message;
                         }
                         heartbeat_at_client += n_heartbeat_interval;
@@ -546,11 +543,13 @@ class broker {
    private:
     zmq::context_t *m_context;                    //  0MQ context
     zmq::socket_t *m_client;                      //  Socket for clients list requests
+    zmq::socket_t *m_client_heartbeat;            //  Socket for clients heartbeats
     zmq::socket_t *m_worker;                      //  Socket for workers tasks request
     zmq::socket_t *m_xpub_socket;                 //  Socket for broker to publish list updates to clients
     zmq::socket_t *m_xsub_socket;                 //  Socket for broker to subscribe to list updates made by workers
     const int m_verbose;                          //  Print activity to stdout
     std::string m_routerClientEndpoint;           //  Broker binds ROUTER socket to this client endpoint
+    std::string m_routerClientHeartbeatEndpoint;  //  Broker binds ROUTER socket to this client_heartbeat endpoint
     std::string m_routerWorkerEndpoint;           //  Broker binds ROUTER socket to this worker endpoint
     std::string m_pullEndpoint;                   //  Broker binds PULL socket to this endpoint
     std::string m_xpubEndpoint;                   //  Broker binds XPUB to this endpoint

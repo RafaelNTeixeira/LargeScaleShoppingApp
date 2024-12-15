@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 
+
 #include "../zmq/mdp.h"
 #include "../zmq/zmsg.hpp"
 #include "majWorker.cpp"
@@ -32,8 +33,8 @@ using json = nlohmann::json;
 // void monitor_worker_ports(std::unordered_set<std::string> &bound_ports, mdwrk &worker) {
 //     while (is_running.load()) {
 //         {
-//             std::lock_guard<std::mutex> lock(ports_mutex); // Lock ports for thread safety
 //             for (const auto &port : workers_ports) {
+//             std::lock_guard<std::mutex> lock(ports_mutex); // Lock ports for thread safety
 //                 std::cout << "Port: " << port << std::endl;
 //                 if (bound_ports.find(port) == bound_ports.end()) { // If there are no new ports, skip
 //                     std::string connect_address = "tcp://localhost:" + port; // Build connect address for PUSH socket

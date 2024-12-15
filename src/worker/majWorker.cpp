@@ -2,8 +2,8 @@
 #define __MDWRKAPI_HPP_INCLUDED__
 
 #include <uuid/uuid.h>
-
 #include <nlohmann/json.hpp>
+#include <algorithm>
 
 #include "../database.h"
 #include "../server/consistent_hashing.cpp"
@@ -86,17 +86,33 @@ class mdwrk {
         delete m_worker_pub;
     }
 
-    std::string distribute_work(std::string url_list) {
+    std::vector<std::string> distribute_work(std::string url_list) {
         std::cout << "URL LIST: " << url_list << std::endl;
         std::map<size_t, std::string> sorted_workers = ch->getRing();
 
-        std::string target_worker_pull = "";
+        // std::string target_worker_pull = "";
+
+        std::vector<std::string> target_workers_pull;
 
         std::cout << "HERE1" << std::endl;
 
         //auto it = sorted_workers.lower_bound(url_list);
 
-        target_worker_pull = ch->getServer(url_list);
+        std::string primary_worker = ch->getServer(url_list);
+        target_workers_pull.push_back(primary_worker);
+
+        std::string next_worker = primary_worker;
+
+        for (int i = 0; i < 2; ++i) {
+            next_worker = ch->getNextServer(next_worker);
+            auto is_worker_in_list = std::find(target_workers_pull.begin(), target_workers_pull.end(), next_worker);
+            if (!next_worker.empty() && is_worker_in_list == target_workers_pull.end()) {
+                std::cout << "found a new worker!" << std::endl;
+                target_workers_pull.push_back(next_worker);
+            } else {
+                break; 
+            }
+        }
 
         // if (it == sorted_workers.end()) {
         //     std::cout << "HERE2" << std::endl;
@@ -109,9 +125,8 @@ class mdwrk {
         //     std::cout << "HERE5" << std::endl;
         // }
 
-        std::cout << "Target worker pull: " << target_worker_pull << std::endl;
 
-        return target_worker_pull;
+        return target_workers_pull;
     }
 
     size_t get_url_list_hash(const ustring& request_type, const ustring& url_list, zmsg* msg) {
@@ -146,8 +161,10 @@ class mdwrk {
 
         Response res = handleRequest(url_list_str, request_type_str, msg, db);
 
-        publish_to_broker(url_list_str, res.shopping_list, NULL);
-
+        if (res.shopping_list != "") {
+            publish_to_broker(url_list_str, res.shopping_list, NULL);
+        }
+        
         return new zmsg(res.reply.c_str());
     }
 
@@ -270,7 +287,8 @@ class mdwrk {
         m_worker = new zmq::socket_t(*m_context, ZMQ_DEALER);
         int linger = 0;
         m_worker->set(zmq::sockopt::linger, linger);
-        std::string worker_id = generateUUID();
+        worker_id = generateUUID();
+        std::cout << "Worker id: " << worker_id << std::endl;
         m_worker->set(zmq::sockopt::routing_id, worker_id);
         m_worker->connect(m_broker.c_str());
 
@@ -394,20 +412,39 @@ class mdwrk {
                     msg->push_front("");
 
                     //size_t url_list_hash = get_url_list_hash(request_type, url_list, msg);
-                    std::string target_worker_pull = distribute_work((char*)url_list.c_str());
+                    std::vector<std::string> target_workers_pull = distribute_work((char*)url_list.c_str());
 
-                    std::cout << "Current worker pull bind: " << m_worker_pull_bind_complete << std::endl;
+                    for (std::string worker : target_workers_pull) {
+                        if (worker == m_worker_pull_bind_complete) {
+                            std::cout << "Target worker is the current worker." << std::endl;
+                            zmsg* response_msg = handle_request(msg, db);
+                            return response_msg;
+                        } else {
+                            std::cout << "Target worker is a different worker: " << worker << std::endl;
+                            zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(worker);
+                            msg->wrap(m_reply_to.c_str(), "");
+                            send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
+                        }
+                    }
 
-                    if (target_worker_pull == m_worker_pull_bind_complete) {
-                        std::cout << "Target worker is the current worker." << std::endl;
-                        zmsg* response_msg = handle_request(msg, db);
-                        return response_msg;
-                    } else {
-                        std::cout << "Target worker is a different worker: " << target_worker_pull << std::endl;
-                        zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(target_worker_pull);
-                        msg->wrap(m_reply_to.c_str(), "");
-                        send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
-                      }
+                    zmsg* free_worker = new zmsg();
+                    std::string free_message = "Worker is free. Only redistributed work";
+                    free_worker->push_front(free_message.c_str());
+
+                    return free_worker;
+
+                    // std::cout << "Current worker pull bind: " << m_worker_pull_bind_complete << std::endl;
+
+                    // if (target_worker_pull == m_worker_pull_bind_complete) {
+                    //     std::cout << "Target worker is the current worker." << std::endl;
+                    //     zmsg* response_msg = handle_request(msg, db);
+                    //     return response_msg;
+                    // } else {
+                    //     std::cout << "Target worker is a different worker: " << target_worker_pull << std::endl;
+                    //     zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(target_worker_pull);
+                    //     msg->wrap(m_reply_to.c_str(), "");
+                    //     send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
+                    //   }
 
                     // ustring request_type = msg->pop_front();
                     // std::string request_type_str = (char *)request_type.c_str();
@@ -516,6 +553,10 @@ class mdwrk {
                 }   
                 else if (command.compare (k_mdpw_recv_work.data()) == 0) {
                     std::cout << "Received work to process." << std::endl;
+                    zmsg* notify_broker = new zmsg();
+                    notify_broker->push_front(worker_id.c_str());
+
+                    send_to_broker(k_mdpw_worker_occupied.data(), "", notify_broker);
                     m_reply_to = msg->unwrap();
                     msg->dump();
                     zmsg* response_msg = handle_request(msg, db);
@@ -585,6 +626,7 @@ class mdwrk {
     zmq::socket_t *m_worker_pull{};  //  Bind for PULL socket
     const int m_verbose;             //  Print activity to stdout
     Database db;
+    std::string worker_id;
 
     // Heartbeat management
     int64_t m_heartbeat_at;  //  When to send HEARTBEAT
