@@ -200,6 +200,8 @@ void listenForUpdates(mdcli& client, Database& db) {
         if (!sub_update.empty()) {
             std::string list_url = sub_update[0];
             try {
+                std::cout << "Shopping List: " << sub_update[1] << std::endl;
+                
                 json shopping_list = json::parse(sub_update[1].c_str());
                 updateList(db, list_url, shopping_list);
             } catch (const json::parse_error& e) {

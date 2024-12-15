@@ -111,8 +111,8 @@ class mdcli {
             // Process the zmsg
             // NEEDS TO BE UPDATED TO HANDLE THE SHOPPING LIST
             if (msg->parts() > 0) {
-                //std::cout << "Received active update through SUB socket:" << std::endl;
-                // msg->dump();
+                std::cout << "Received active update through SUB socket:" << std::endl;
+                msg->dump();
 
                 std::string url_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));
                 results.push_back(url_list);  // Add the URL list to results

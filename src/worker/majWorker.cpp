@@ -161,8 +161,10 @@ class mdwrk {
 
         Response res = handleRequest(url_list_str, request_type_str, msg, db);
 
-        publish_to_broker(url_list_str, res.shopping_list, NULL);
-
+        if (res.shopping_list != "") {
+            publish_to_broker(url_list_str, res.shopping_list, NULL);
+        }
+        
         return new zmsg(res.reply.c_str());
     }
 

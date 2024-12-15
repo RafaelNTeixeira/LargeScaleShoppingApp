@@ -156,6 +156,7 @@ void to_json(nlohmann::json& j, const ShoppingList& u) {
     nlohmann::json items;
     items["context"] = u.items.context.toJson();
     items["map"] = nlohmann::json::object();
+    
     for (const auto& item : u.items.map) {
         items["map"][item.first] = item.second.core.values;
     }

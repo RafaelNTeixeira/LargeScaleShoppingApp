@@ -69,7 +69,12 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         std::cout << "Got url for GET_LIST: " << url_list << std::endl;
         json shopping_list = db.get(url_list);
 
-        res.shopping_list = getStringFromJson(shopping_list);
+        if (shopping_list != json()) {
+            res.shopping_list = getStringFromJson(shopping_list);
+        }
+        else {
+            res.shopping_list = "";
+        }
         res.reply = "get_list";
     } else if (request == "UPDATE_LIST") {
         zmsg::ustring received_shopping_list_str = msg->pop_front();
