@@ -35,17 +35,29 @@ make
 To run the application, you can run the following command:
 
 ```bash
-make runClient1
-make runClient2
-# or directly
-./src/client/client <broker_ip/port> <path/to/database>
+make runBroker # to run the broker
 
-make runBroker
+make runClient1 # to run the client 1
+make runClient2 # to run the client 2
 
-make runWorker1
-make runWorker2
-make runWorker3
-make runWorker4
-# or directly
+# or to directly run the client
+mkdir -p database/local/user_name/ # user_name can be any name
+# Example: mkdir -p database/local/joao/
+./src/client/client <broker_ip/port> <broker_heartbeat_ip/port> <path/to/database>
+
+make runWorker1 # to run the worker 1
+make runWorker2 # to run the worker 2
+make runWorker3 # to run the worker 3
+make runWorker4 # to run the worker 4
+make runWorker5 # to run the worker 5
+make runWorker6 # to run the worker 6
+
+# or to directly run the worker
+mkdir -p database/cloud/database_name/  # database_name can be any name
+# Example: mkdir -p database/cloud/my_database/
 ./src/worker/worker <broker> <service> <worker_pull_port> <worker_connect_address> <database_path>
 ```
+
+To close the Broker and the Workers, you can just `CTRL+C` in the terminal.
+
+To close the Client, you need choose the `Exit` option to close. 
