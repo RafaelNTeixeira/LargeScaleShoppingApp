@@ -232,13 +232,13 @@ class mdwrk {
     //  ---------------------------------------------------------------------
     // Publish message to broker XSUB
     //  If no _msg is provided, creates one internally
-    void publish_to_broker(std::string url_list, json shopping_list, zmsg *_msg) {
+    void publish_to_broker(std::string url_list, std::string shopping_list, zmsg *_msg) {
         zmsg *msg = _msg ? new zmsg(*_msg) : new zmsg();
 
         // Frame 0: Topic (url of updated list)
         // Frame 1: Updated shopping list
 
-        msg->push_front(shopping_list.dump().c_str());
+        msg->push_front(shopping_list.c_str());
         msg->push_front(url_list.c_str());
 
         if (m_verbose) {
@@ -276,7 +276,7 @@ class mdwrk {
 
         m_worker_pub = new zmq::socket_t(*m_context, ZMQ_PUB);
         m_worker_pub->set(zmq::sockopt::linger, 0);
-        m_worker_pub->bind(m_worker_pub_bind.c_str());
+        m_worker_pub->connect(m_worker_pub_bind.c_str());
 
         m_worker_pull = new zmq::socket_t(*m_context, ZMQ_PULL);
         m_worker_pull->set(zmq::sockopt::linger, 0);

@@ -424,6 +424,7 @@ class ORMap {
         while (oit != o.map.end()) {
             (*this)[oit->first].join(oit->second);
             oit++;
+            context = initial_context;
         }
 
         context.join(o.context);

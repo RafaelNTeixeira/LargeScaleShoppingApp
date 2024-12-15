@@ -110,7 +110,7 @@ void run_worker(const std::string &broker, const std::string &worker_pub_bind, c
 
 int main(int argc, char *argv[]) {
     if (argc != 6) {
-        std::cerr << "Usage: ./src/worker/worker <broker> <service> <worker_pull_port> <worker_connect_address> <database_path>" << std::endl;
+        std::cerr << "Usage: ./src/worker/worker <broker> <broker_sub> <worker_pull_port> <worker_connect_address> <database_path>" << std::endl;
         return 1;  // Error: incorrect number of arguments
     }
 

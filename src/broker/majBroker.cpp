@@ -92,7 +92,7 @@ class broker {
         s_console("I: MDP XPUB broker/0.1.1 is active at %s", m_xpubEndpoint.c_str());
 
         m_xsubEndpoint = xsubEndpoint;
-        m_xsub_socket->connect(m_xsubEndpoint.c_str());
+        m_xsub_socket->bind(m_xsubEndpoint.c_str());
         std::cout << "xsub endpoint: " << m_xsubEndpoint << std::endl;
 
         // SUBSCRIBING TO ALL CHANGES MADE TO THE LISTS THAT A CLIENT HAS ACCESS TO

@@ -1,0 +1,42 @@
+{
+    "id": "",
+    "items": {
+        "context": {
+            "dc": [],
+            "vc": {
+                "e5d3c4ee-efa4-445b-ac63-af6129cd3360": 5
+            }
+        },
+        "map": {
+            "Banana": [
+                [
+                    [
+                        "e5d3c4ee-efa4-445b-ac63-af6129cd3360",
+                        2
+                    ],
+                    9
+                ]
+            ],
+            "Peach": [
+                [
+                    [
+                        "e5d3c4ee-efa4-445b-ac63-af6129cd3360",
+                        4
+                    ],
+                    3
+                ]
+            ],
+            "Tomato": [
+                [
+                    [
+                        "e5d3c4ee-efa4-445b-ac63-af6129cd3360",
+                        5
+                    ],
+                    4
+                ]
+            ]
+        }
+    },
+    "title": "Fruits",
+    "url": "msla-e5d3c4ee-efa4-445b-ac63-af6129cd3360"
+}

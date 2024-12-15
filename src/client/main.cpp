@@ -176,7 +176,7 @@ bool buyProductsFromList(ShoppingList& shoppingList) {
     return true;
 }
 
-void updateList(Database& db, const std::string& list_url, const json& shoppingList) {
+void updateList(Database& db, const std::string& list_url, json& shoppingList) {
     // make it thread safe
     if (db.exists(list_url)) {
         std::cout << "Shopping list already exists in the database. Updating..." << std::endl;
@@ -189,6 +189,7 @@ void updateList(Database& db, const std::string& list_url, const json& shoppingL
         db.set(list_url, updatedShoppingListJson);
     } else {
         std::cout << "Shopping list does not exist in the database. Creating..." << std::endl;
+        shoppingList["id"] = mdcli::generateUUID();
         db.set(list_url, shoppingList);
     }
 }
@@ -200,6 +201,7 @@ void listenForUpdates(mdcli& client, Database& db) {
         if (!sub_update.empty()) {
             std::string list_url = sub_update[0];
             try {
+                std::cout << "Received update for list: " << list_url << std::endl;
                 json shopping_list = json::parse(sub_update[1].c_str());
                 updateList(db, list_url, shopping_list);
             } catch (const json::parse_error& e) {
@@ -216,15 +218,15 @@ void listenForHeartBeats(mdcli& client, Database& db) {
     while (s_interrupted == 0) {
         zmsg* heartbeat = client.recv();
         if (last_cloud_mode != client.get_cloud_mode()) {
-            std::cout << "Cloud Mode updated: " << client.get_cloud_mode() << std::endl;
+            // std::cout << "Cloud Mode updated: " << client.get_cloud_mode() << std::endl;
             last_cloud_mode = client.get_cloud_mode();
             if (client.get_cloud_mode()) {
-                std::cout << "Connected to the cloud." << std::endl;
+                // std::cout << "Connected to the cloud." << std::endl;
                 for (const auto& key : db.keys()) {
                     client.subscribe_to_list(key);
                 }
             } else {
-                std::cout << "Disconnected from the cloud." << std::endl;
+                // std::cout << "Disconnected from the cloud." << std::endl;
             }
         }
     }
@@ -388,8 +390,7 @@ int main(int argc, char* argv[]) {
         if (choice != 0) {
             if (choice == 1) {
                 // Create an empty Shopping List (DEALER)
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
-                // std::string generated_url = "zxcv";  // TEM QUE SE GERAR UM URL ÚNICO AQUI
+                // std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode) {
                     zmsg* msg = new zmsg();
                     std::string shoppingListStr = newShoppingListJson.dump();
@@ -404,7 +405,7 @@ int main(int argc, char* argv[]) {
                 }
             } else if (choice == 2) {
                 // Ask for a Shopping List (DEALER)
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                // std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 const char* url_list_msg_parameter = get_list_url.c_str();
                 if (cloud_mode) {
                     client.subscribe_to_list(get_list_url);
@@ -414,7 +415,7 @@ int main(int argc, char* argv[]) {
                     std::cout << "xxxxxxxxx Server Unavailable. Try again later! xxxxxxxxx" << std::endl;
                 }
             } else if (choice == 3) {
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                // std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode && db.exists(update_list_list_url)) {
                     zmsg* msg = new zmsg();
                     to_json(currentShoppingListJson, currentShoppingList);
@@ -428,7 +429,7 @@ int main(int argc, char* argv[]) {
                     delete msg;
                 }
             } else if (choice == 4) {
-                std::cout << "cloud_mode: " << cloud_mode << std::endl;
+                // std::cout << "cloud_mode: " << cloud_mode << std::endl;
                 if (cloud_mode) {
                     client.unsubscribe_from_list(update_list_list_url);
                     std::cout << "MSG SENT TO HANDLE op 4: " << std::endl;

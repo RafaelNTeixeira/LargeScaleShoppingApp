@@ -119,10 +119,8 @@ class ShoppingList {
     }
 
     bool join(const ShoppingList& o) {
-        if (url.empty()) {
+        if (url.empty() && title.empty()) {
             url = o.url;
-        }
-        if (title.empty()) {
             title = o.title;
         }
         if (title != o.title || url != o.url) {

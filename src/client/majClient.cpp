@@ -68,7 +68,9 @@ class mdcli {
 
     void subscribe_to_list(std::string list_url) {
         m_sub_socket->set(zmq::sockopt::subscribe, list_url);
-        std::cout << "Subscribed to list: " << list_url << std::endl;
+        if (m_verbose) {
+            std::cout << "Subscribed to list: " << list_url << std::endl;
+        }
         client_url_list.push_back(list_url);
     }
 
@@ -98,8 +100,10 @@ class mdcli {
             // Process the zmsg
             // NEEDS TO BE UPDATED TO HANDLE THE SHOPPING LIST
             if (msg->parts() > 0) {
-                std::cout << "Received active update through SUB socket:" << std::endl;
-                msg->dump();
+                if (m_verbose) {
+                    std::cout << "Received active update through SUB socket:" << std::endl;
+                    msg->dump();
+                }
 
                 std::string url_list = std::string(reinterpret_cast<const char *>(msg->pop_front().c_str()));
                 results.push_back(url_list);  // Add the URL list to results
