@@ -3,6 +3,12 @@
 
 #include "../zmq/mdp.h"
 #include "../zmq/zmsg.hpp"
+#include <zmq.hpp>
+#include <string>
+#include <vector>
+#include <iostream>
+#include <uuid/uuid.h>
+#include <algorithm>
 
 //  Structure of our class
 //  We access these properties only via class methods

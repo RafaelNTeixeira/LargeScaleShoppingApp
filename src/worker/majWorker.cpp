@@ -64,7 +64,7 @@ class mdwrk {
    public:
     //  ---------------------------------------------------------------------
     //  Constructor
-    mdwrk(std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string connect_to_worker, std::string service, std::string database_path, int verbose) : m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_connect_to_worker(connect_to_worker), m_service(service), m_verbose(verbose) {
+    mdwrk(std::string broker, std::string worker_pub, std::string worker_pull_bind, std::string connect_to_worker, std::string service, std::string database_path, int verbose, int replicas = 2) : m_broker(broker), m_worker_pub_bind(worker_pub), m_worker_pull_bind(worker_pull_bind), m_connect_to_worker(connect_to_worker), m_service(service), m_verbose(verbose), numberOfReplicas(replicas) {
         s_version_assert(4, 0);
         m_context = new zmq::context_t(1);
         ch = new ConsistentHashing(1);
@@ -103,7 +103,7 @@ class mdwrk {
 
         std::string next_worker = primary_worker;
 
-        for (int i = 0; i < 2; ++i) {
+        for (int i = 0; i < numberOfReplicas; ++i) {
             next_worker = ch->getNextServer(next_worker);
             auto is_worker_in_list = std::find(target_workers_pull.begin(), target_workers_pull.end(), next_worker);
             if (!next_worker.empty() && is_worker_in_list == target_workers_pull.end()) {
@@ -644,6 +644,8 @@ class mdwrk {
     std::string m_reply_to;
 
     ConsistentHashing *ch;
+
+    int numberOfReplicas;
 };
 
 #endif
