@@ -52,7 +52,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         // THIS IS GONNA NEED CHECKING TO CONVERT
         zmsg::ustring shopping_list_str = msg->pop_front();
         if (shopping_list_str.size() == 0) {
-            std::cout << "Empty shopping list received" << std::endl;
+            std::cout << "Empty shopping list received!" << std::endl;
         }
         json shopping_list = getJsonFromUString(shopping_list_str);
         std::cout << "Shopping list received: " << shopping_list << std::endl;
@@ -64,7 +64,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         db.set(new_list.getURL(), shopping_list);
 
         res.shopping_list = getStringFromJson(shopping_list);
-        res.reply = "create_list";
+        res.reply = "Created shopping list with success!";
     } else if (request == "GET_LIST") {
         std::cout << "Got url for GET_LIST: " << url_list << std::endl;
         json shopping_list = db.get(url_list);
@@ -75,7 +75,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         else {
             res.shopping_list = "";
         }
-        res.reply = "get_list";
+        res.reply = "Retrieved shopping list with success!";
     } else if (request == "UPDATE_LIST") {
         zmsg::ustring received_shopping_list_str = msg->pop_front();
         json received_shopping_list = getJsonFromUString(received_shopping_list_str);
@@ -96,7 +96,7 @@ Response handleRequest(std::string url_list, std::string request, zmsg* msg, Dat
         db.set(url_list, stored_shopping_list);
 
         res.shopping_list = getStringFromJson(stored_shopping_list);
-        res.reply = "update_list";
+        res.reply = "Updated shopping list with success!";
     } else {
         res.reply = "unknown request";
     }
