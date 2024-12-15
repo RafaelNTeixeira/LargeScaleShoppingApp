@@ -212,7 +212,7 @@ class broker {
     worker *worker_require(std::string identity) {
         assert(!identity.empty());
 
-        //  self->workers is keyed off worker identity
+        // self->workers is keyed off worker identity
         if (m_workers.count(identity)) {
             return m_workers.at(identity);
         } else {
@@ -273,6 +273,8 @@ class broker {
         if (command.compare(k_mdpw_ready.data()) == 0) {
             std::cout << "Received READY from worker" << std::endl;
 
+            std::cout << "Worker identity: " << wrk->m_identity << std::endl;
+
             if (worker_ready) {  //  Not first command in session
                 worker_delete(wrk, 1);
             } else {
@@ -289,7 +291,16 @@ class broker {
                     worker_waiting(wrk);
                 }
             }
-        } else {
+        } else if (command.compare(k_mdpw_worker_occupied.data()) == 0) {
+            std::cout << "Received k_mdpw_worker_occupied: " << std::endl;
+            msg->dump();
+            std::string sender = (char*) msg->pop_front().c_str();
+            std::cout << "Sender: " << sender << std::endl;
+            worker* wrk = m_workers.at(sender);
+            m_waiting.erase(wrk);
+            wrk->m_service->m_waiting.remove(wrk);
+        }
+        else {
             if (command.compare(k_mdpw_reply.data()) == 0) {
                 std::cout << "Received REPLY from worker" << std::endl;
                 if (worker_ready) {

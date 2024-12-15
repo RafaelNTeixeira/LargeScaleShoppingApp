@@ -29,6 +29,14 @@ runWorker4:
 	mkdir -p database/cloud/4/
 	./src/worker/worker "tcp://localhost:5555" "tcp://*:5561" "tcp://*:5604" "tcp://localhost:5603" "database/cloud/4"
 
+runWorker5:
+	mkdir -p database/cloud/5/
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5562" "tcp://*:5605" "tcp://localhost:5604" "database/cloud/5"
+
+runWorker6:
+	mkdir -p database/cloud/6/
+	./src/worker/worker "tcp://localhost:5555" "tcp://*:5563" "tcp://*:5606" "tcp://localhost:5605" "database/cloud/6"
+
 broker: 
 	g++ -std=c++17 src/broker/main.cpp -o src/broker/broker -lzmq
 
