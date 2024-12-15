@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
 
     s_catch_signals();
 
-    mdcli client(broker_ip, broker_heartbeat_ip, 1);
+    mdcli client(broker_ip, broker_heartbeat_ip, 0);
 
     std::thread update_listener(listenForUpdates, std::ref(client), std::ref(db));
     // update_listener.detach();  // Ensures the thread runs independently
