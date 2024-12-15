@@ -63,3 +63,7 @@ mkdir -p database/cloud/database_name/  # database_name can be any name
 To close the Broker and the Workers, you can just `CTRL+C` in the terminal.
 
 To close the Client, you need choose the `Exit` option to close. 
+
+## Documentation
+
+In the `docs` folder you can find the presentation and the video demo for the project.

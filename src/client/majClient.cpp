@@ -104,7 +104,7 @@ class mdcli {
         std::vector<std::string> results;
 
         // Loop to process all available messages
-        while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
+        while (results.empty() && m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
 
             // PART 0: URL_LIST
             // PART 1: SHOPPING_LIST
@@ -116,7 +116,9 @@ class mdcli {
 
             // Continue receiving other parts if multipart
             while (m_sub_socket->recv(message, zmq::recv_flags::dontwait)) {
-                msg->push_back(static_cast<const char *>(message.data()));  // Add each subsequent part
+                char *part = static_cast<char *>(message.data());
+                part[message.size()] = '\0';
+                msg->push_back(part);
             }
 
             // Process the zmsg

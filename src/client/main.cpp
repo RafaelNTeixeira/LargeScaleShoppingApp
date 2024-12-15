@@ -442,7 +442,7 @@ int main(int argc, char* argv[]) {
                 zmsg* reply = client.recv();
                 if (reply) {
                     std::cout << "Reply received: " << std::endl;
-                    reply->dump();
+                    // reply->dump();
 
                     ustring temp = reply->pop_front();
                     if (temp.empty()) {
