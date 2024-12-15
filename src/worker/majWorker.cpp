@@ -130,6 +130,7 @@ class mdwrk {
     }
 
     size_t get_url_list_hash(const ustring& request_type, const ustring& url_list, zmsg* msg) {
+        std::cout << "in get url_hash" << std::endl;
         std::string request_type_str = (char*) request_type.c_str();
         std::string url_list_str = (char*) url_list.c_str();
         std::cout << "request_type received: " << request_type_str << std::endl;
@@ -147,6 +148,7 @@ class mdwrk {
     }
 
     zmsg* handle_request(zmsg* msg, Database& db) {
+        std::cout << "in handle req" << std::endl;
         ustring empty = msg->pop_front();
         
         ustring request_type = msg->pop_front();
@@ -415,6 +417,8 @@ class mdwrk {
                     std::vector<std::string> target_workers_pull = distribute_work((char*)url_list.c_str());
 
                     for (std::string worker : target_workers_pull) {
+                        std::cout << "this is going to the message to the target worker" << std::endl;
+                        msg->dump();
                         if (worker == m_worker_pull_bind_complete) {
                             std::cout << "Target worker is the current worker." << std::endl;
                             zmsg* response_msg = handle_request(msg, db);
@@ -424,6 +428,7 @@ class mdwrk {
                             zmq::socket_t* target_worker_push_socket = ch->getPushSocketViaServer(worker);
                             msg->wrap(m_reply_to.c_str(), "");
                             send_to_worker (target_worker_push_socket, k_mdpw_recv_work.data(), "", NULL, msg);
+                            msg->unwrap();
                         }
                     }
 
@@ -555,10 +560,8 @@ class mdwrk {
                     std::cout << "Received work to process." << std::endl;
                     zmsg* notify_broker = new zmsg();
                     notify_broker->push_front(worker_id.c_str());
-
                     send_to_broker(k_mdpw_worker_occupied.data(), "", notify_broker);
                     m_reply_to = msg->unwrap();
-                    msg->dump();
                     zmsg* response_msg = handle_request(msg, db);
                     return response_msg;
                 }  
