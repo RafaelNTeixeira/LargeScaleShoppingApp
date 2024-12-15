@@ -51,6 +51,8 @@ make runWorker3 # to run the worker 3
 make runWorker4 # to run the worker 4
 make runWorker5 # to run the worker 5
 make runWorker6 # to run the worker 6
+make runWorker7 # to run the worker 7
+make runWorker8 # to run the worker 8
 
 # or to directly run the worker
 mkdir -p database/cloud/database_name/  # database_name can be any name
