@@ -90,4 +90,9 @@ Shutdown notes:
 - doc: presentation and demo video
 
 ## Documentation
-Click on the links to view the [Presentation](doc/report.pdf) slides and [Demo Video](doc/demo.mp4).
+Click on the links to view the [Presentation](doc/report.pdf) slides and the demo below:
+
+<video width="800" controls>
+  <source src="doc/demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
