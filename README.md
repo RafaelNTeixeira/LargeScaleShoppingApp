@@ -90,4 +90,4 @@ Shutdown notes:
 - doc: presentation and demo video
 
 ## Documentation
-Click on the links to view the ![presentation](doc/report.pdf) slides and ![demo video](doc/demo.mp4) ()
+Click on the links to view the [Presentation](doc/report.pdf) slides and [Demo Video](doc/demo.mp4).
