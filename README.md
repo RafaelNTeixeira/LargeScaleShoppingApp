@@ -90,4 +90,4 @@ Shutdown notes:
 - doc: presentation and demo video
 
 ## Documentation
-Presentation and demo video are available in the doc folder.
+Click on the links to view the ![presentation](doc/report.pdf) slides and ![demo video](doc/demo.mp4) ()
